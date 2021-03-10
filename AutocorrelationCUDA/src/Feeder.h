@@ -11,14 +11,15 @@
 
 namespace AutocorrelationCUDA {
 
-	using namespace std::chrono_literals;
+using namespace std::chrono_literals;
 
-class Feeder {
+//once every rest milliseconds the Feeder run the user defined transfer() function
+class Feeder final {
 
 	public:
 	
 	//creates a Feeder with the specified rest time and function
-	Feeder(std::chrono::milliseconds rest, std::function<void()> transfer) : transfer{transfer}, rest{rest} {}
+	Feeder(const std::chrono::milliseconds rest, const std::function<void()> transfer) : transfer{transfer}, rest{rest} {}
 
 	Feeder(const Feeder& feeder) = delete;
 	Feeder(Feeder&& feeder) = delete;

@@ -18,10 +18,13 @@
     <ClInclude Include="src\Feeder.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\DataFile.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Main.cu">
+    <CudaCompile Include="src\Main.cu">
       <Filter>Source Files</Filter>
-    </ClCompile>
+    </CudaCompile>
   </ItemGroup>
 </Project>
