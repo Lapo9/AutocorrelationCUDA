@@ -7,30 +7,35 @@
 #include <thread>
 #include <vector>
 
-#define TEST_SIZE 20
+#define BLOCK_SIZE 20
+#define MAX_LAG 10
 
 using namespace std::chrono_literals;
 
-__global__ void autocorrelate(int* blockStart, int blockLength, int maxLag);
+__global__ void autocorrelate(std::uint8_t* blockStart, int blockLength, int maxLag, int* out);
 
 
 int main() {
 	
-	AutocorrelationCUDA::DataFile<int> dataFile{"C:\\", "test1"};
-	std::vector<int> data = dataFile.read(TEST_SIZE);
+	AutocorrelationCUDA::DataFile<std::uint8_t> dataFile{"C:\\", "test1"};
+	std::vector<std::uint8_t> data = dataFile.read(BLOCK_SIZE);
 
-	int* data_d;
-	cudaMalloc(&data_d, TEST_SIZE * sizeof(float));
-	cudaMemcpy(data_d, data.data(), TEST_SIZE * sizeof(float), cudaMemcpyHostToDevice);
+	std::uint8_t* data_d;
+	cudaMalloc(&data_d, BLOCK_SIZE * sizeof(std::uint8_t));
+	cudaMemcpy(data_d, data.data(), BLOCK_SIZE * sizeof(std::uint8_t), cudaMemcpyHostToDevice);
 
-	autocorrelate <<< 1, TEST_SIZE >>> (data_d, TEST_SIZE, 10);
+	int* out_d;
+	cudaMalloc(&out_d, BLOCK_SIZE * sizeof(int));
 
-	cudaMemcpy(data.data(), data_d, TEST_SIZE * sizeof(float), cudaMemcpyDeviceToHost);
+	autocorrelate <<< 1, MAX_LAG >>> (data_d, BLOCK_SIZE, MAX_LAG, out_d);
 
-	dataFile.write(data);
+	std::vector<int> out(MAX_LAG);
+	cudaMemcpy(out.data(), out_d, MAX_LAG * sizeof(int), cudaMemcpyDeviceToHost);
 
-	for (int i = 0; i < TEST_SIZE; ++i) {
-		std::cout << data[i] << std::endl;
+	dataFile.write<int>(out);
+
+	for (int i = 0; i < MAX_LAG; ++i) {
+		std::cout << out[i] << std::endl;
 	}
 
 	/*Feeder f1{2s, [] {std::cout << "Ciao!\n" << std::endl; }};
@@ -52,7 +57,7 @@ int main() {
 }
 
 
-__global__ void autocorrelate(int* blockStart, int blockLength, int maxLag) {
+__global__ void autocorrelate(std::uint8_t* blockStart, int blockLength, int maxLag, int* out) {
 
 	int partialSum = 0;
 	if(threadIdx.x <= maxLag){
@@ -61,7 +66,7 @@ __global__ void autocorrelate(int* blockStart, int blockLength, int maxLag) {
 				partialSum += blockStart[i] * blockStart[threadIdx.x + i];
 			}
 		}
-		blockStart[threadIdx.x] = partialSum;
+		out[threadIdx.x] = partialSum;
 	}
 
 }
