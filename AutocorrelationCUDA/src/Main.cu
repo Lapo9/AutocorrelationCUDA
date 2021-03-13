@@ -8,8 +8,8 @@
 #include <thread>
 #include <vector>
 
-#define BLOCK_SIZE 4
-#define MAX_LAG 10
+#define BLOCK_SIZE 10
+#define MAX_LAG 30
 
 using namespace std::chrono_literals;
 
@@ -18,48 +18,41 @@ __global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<MAX_LAG, BLOCK_SIZ
 
 int main() {
 	
-	//read file where data is stored
+	//open file where data is stored
 	AutocorrelationCUDA::DataFile<std::uint8_t> dataFile{"C:\\", "test1"};
 	
 	//array in GPU memory to store output data
 	int* out_d;
 	cudaMalloc(&out_d, MAX_LAG * sizeof(int));
 
+	//create circular array in GPU memory
 	AutocorrelationCUDA::CudaWindow<MAX_LAG, BLOCK_SIZE, std::uint8_t> window{};
 
-	//copy read data to GPU
-	for(int i=0; i<2; ++i){
-		window.copyBlock(dataFile.read(BLOCK_SIZE), cudaMemcpyHostToDevice);
+	int timesCalled = 0; //counter
 
-		autocorrelate <<< 1, MAX_LAG >>> (window, i*BLOCK_SIZE, out_d);
-	}
+	AutocorrelationCUDA::Feeder f1{1s, [&window, &out_d, &dataFile, &timesCalled] {
+				window.copyBlock(dataFile.read(BLOCK_SIZE), cudaMemcpyHostToDevice); //store in GPU memory one block of data
+				autocorrelate <<< 1, MAX_LAG >>> (window, timesCalled * BLOCK_SIZE, out_d);
+				timesCalled++;
+			}};
+	f1.start();
+	std::this_thread::sleep_for(6s);
+	f1.pause();
 
 	//copy output data from GPU to CPU
 	std::vector<int> out(MAX_LAG);
 	cudaMemcpy(out.data(), out_d, MAX_LAG * sizeof(int), cudaMemcpyDeviceToHost);
 
+	std::cout << timesCalled << "\n";
+	for (int i = 0; i < MAX_LAG; ++i) {
+		out[i] = out[i] / ((timesCalled * BLOCK_SIZE) - i);
+		std::cout << i << " --> " << out[i] << std::endl;
+	}
+
 	//write output to file
 	dataFile.write<int>(out);
 
-	for (int i = 0; i < MAX_LAG; ++i) {
-		std::cout << out[i] << std::endl;
-	}
-
-	/*Feeder f1{2s, [] {std::cout << "Ciao!\n" << std::endl; }};
-	f1.start();
-
-	std::this_thread::sleep_for(4s);
-	f1.pause();
-	std::this_thread::sleep_for(6s);
-	f1.resume();
-
-	std::this_thread::sleep_for(10s); */
-	//receive data
-	//send data to GPU
-	//launch kernel
-	//loop
-
-	//collect results
+	
 
 }
 
