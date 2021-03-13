@@ -21,24 +21,27 @@ int main() {
 	//read file where data is stored
 	AutocorrelationCUDA::DataFile<std::uint8_t> dataFile{"C:\\", "test1"};
 	
-	//copy read data to GPU
-	AutocorrelationCUDA::CudaWindow<MAX_LAG, BLOCK_SIZE, std::uint8_t> window{};
-	window.copyBlock(dataFile.read(BLOCK_SIZE), cudaMemcpyHostToDevice);
-
-	//array in memory to store output data
+	//array in GPU memory to store output data
 	int* out_d;
-	cudaMalloc(&out_d, BLOCK_SIZE * sizeof(int));
+	cudaMalloc(&out_d, MAX_LAG * sizeof(int));
 
-	autocorrelate <<< 1, MAX_LAG >>> (window, 0, out_d);
+	AutocorrelationCUDA::CudaWindow<MAX_LAG, BLOCK_SIZE, std::uint8_t> window{};
+
+	//copy read data to GPU
+	for(int i=0; i<2; ++i){
+		window.copyBlock(dataFile.read(BLOCK_SIZE), cudaMemcpyHostToDevice);
+
+		autocorrelate <<< 1, MAX_LAG >>> (window, i*BLOCK_SIZE, out_d);
+	}
 
 	//copy output data from GPU to CPU
-	std::vector<int> out(BLOCK_SIZE);
-	cudaMemcpy(out.data(), out_d, BLOCK_SIZE * sizeof(int), cudaMemcpyDeviceToHost);
+	std::vector<int> out(MAX_LAG);
+	cudaMemcpy(out.data(), out_d, MAX_LAG * sizeof(int), cudaMemcpyDeviceToHost);
 
 	//write output to file
 	dataFile.write<int>(out);
 
-	for (int i = 0; i < BLOCK_SIZE; ++i) {
+	for (int i = 0; i < MAX_LAG; ++i) {
 		std::cout << out[i] << std::endl;
 	}
 
@@ -62,15 +65,15 @@ int main() {
 
 
 __global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<MAX_LAG, BLOCK_SIZE, std::uint8_t> window, int start, int* out) {
-
-	int partialSum = 0;
 	if(threadIdx.x <= MAX_LAG){
+
+		int partialSum = 0;
 		for (int i = 0; i < BLOCK_SIZE; ++i) {
-			if(threadIdx.x+i < BLOCK_SIZE){
-				partialSum += window[i] * window[threadIdx.x + i];
+			if(i+start - threadIdx.x >= 0){
+				partialSum += window[i+start - threadIdx.x] * window[i+start];
 			}
 		}
-		out[threadIdx.x] = partialSum;
+		
+		out[threadIdx.x] += partialSum;
 	}
-
 }
