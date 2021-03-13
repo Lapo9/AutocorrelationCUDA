@@ -2,39 +2,43 @@
 #include <device_launch_parameters.h>
 #include "Feeder.h"
 #include "DataFile.h"
+#include "CudaWindow.h"
 #include <iostream>
 #include <chrono>
 #include <thread>
 #include <vector>
 
-#define BLOCK_SIZE 20
+#define BLOCK_SIZE 4
 #define MAX_LAG 10
 
 using namespace std::chrono_literals;
 
-__global__ void autocorrelate(std::uint8_t* blockStart, int blockLength, int maxLag, int* out);
+__global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<MAX_LAG, BLOCK_SIZE, std::uint8_t> window, int start, int* out);
 
 
 int main() {
 	
+	//read file where data is stored
 	AutocorrelationCUDA::DataFile<std::uint8_t> dataFile{"C:\\", "test1"};
-	std::vector<std::uint8_t> data = dataFile.read(BLOCK_SIZE);
+	
+	//copy read data to GPU
+	AutocorrelationCUDA::CudaWindow<MAX_LAG, BLOCK_SIZE, std::uint8_t> window{};
+	window.copyBlock(dataFile.read(BLOCK_SIZE), cudaMemcpyHostToDevice);
 
-	std::uint8_t* data_d;
-	cudaMalloc(&data_d, BLOCK_SIZE * sizeof(std::uint8_t));
-	cudaMemcpy(data_d, data.data(), BLOCK_SIZE * sizeof(std::uint8_t), cudaMemcpyHostToDevice);
-
+	//array in memory to store output data
 	int* out_d;
 	cudaMalloc(&out_d, BLOCK_SIZE * sizeof(int));
 
-	autocorrelate <<< 1, MAX_LAG >>> (data_d, BLOCK_SIZE, MAX_LAG, out_d);
+	autocorrelate <<< 1, MAX_LAG >>> (window, 0, out_d);
 
-	std::vector<int> out(MAX_LAG);
-	cudaMemcpy(out.data(), out_d, MAX_LAG * sizeof(int), cudaMemcpyDeviceToHost);
+	//copy output data from GPU to CPU
+	std::vector<int> out(BLOCK_SIZE);
+	cudaMemcpy(out.data(), out_d, BLOCK_SIZE * sizeof(int), cudaMemcpyDeviceToHost);
 
+	//write output to file
 	dataFile.write<int>(out);
 
-	for (int i = 0; i < MAX_LAG; ++i) {
+	for (int i = 0; i < BLOCK_SIZE; ++i) {
 		std::cout << out[i] << std::endl;
 	}
 
@@ -57,13 +61,13 @@ int main() {
 }
 
 
-__global__ void autocorrelate(std::uint8_t* blockStart, int blockLength, int maxLag, int* out) {
+__global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<MAX_LAG, BLOCK_SIZE, std::uint8_t> window, int start, int* out) {
 
 	int partialSum = 0;
-	if(threadIdx.x <= maxLag){
-		for (int i = 0; i < blockLength; ++i) {
-			if(threadIdx.x+i < blockLength){
-				partialSum += blockStart[i] * blockStart[threadIdx.x + i];
+	if(threadIdx.x <= MAX_LAG){
+		for (int i = 0; i < BLOCK_SIZE; ++i) {
+			if(threadIdx.x+i < BLOCK_SIZE){
+				partialSum += window[i] * window[threadIdx.x + i];
 			}
 		}
 		out[threadIdx.x] = partialSum;

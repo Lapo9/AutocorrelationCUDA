@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\CudaWindow.h" />
     <ClInclude Include="src\DataFile.h" />
     <ClInclude Include="src\Feeder.h" />
   </ItemGroup>

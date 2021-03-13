@@ -21,6 +21,9 @@
     <ClInclude Include="src\DataFile.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\CudaWindow.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="src\Main.cu">
