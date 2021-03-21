@@ -13,7 +13,8 @@
 
 using namespace std::chrono_literals;
 
-__global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<MAX_LAG, BLOCK_SIZE, std::uint8_t> window, int start, int* out);
+template <int maxLag, int blockSize, typename Contained>
+__global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<maxLag, blockSize, Contained> window, int start, int* out);
 
 
 int main() {
@@ -30,22 +31,20 @@ int main() {
 
 	int timesCalled = 0; //counter
 
-	AutocorrelationCUDA::Feeder f1{1s, [&window, &out_d, &dataFile, &timesCalled] {
-				window.copyBlock(dataFile.read(BLOCK_SIZE), cudaMemcpyHostToDevice); //store in GPU memory one block of data
-				autocorrelate <<< 1, MAX_LAG >>> (window, timesCalled * BLOCK_SIZE, out_d);
-				timesCalled++;
-			}};
-	f1.start();
-	std::this_thread::sleep_for(6s);
-	f1.pause();
+	for(timesCalled = 0; timesCalled < 16; ++timesCalled) {
+		window.copyBlock(dataFile.read(BLOCK_SIZE), cudaMemcpyHostToDevice); //store in GPU memory one block of data
+		autocorrelate <<< 1, MAX_LAG >>> (window, timesCalled * BLOCK_SIZE, out_d);
+	}
 
 	//copy output data from GPU to CPU
 	std::vector<int> out(MAX_LAG);
 	cudaMemcpy(out.data(), out_d, MAX_LAG * sizeof(int), cudaMemcpyDeviceToHost);
 
+	window.clean(); //deallocates memory on GPU
+
 	std::cout << timesCalled << "\n";
 	for (int i = 0; i < MAX_LAG; ++i) {
-		out[i] = out[i] / ((timesCalled * BLOCK_SIZE) - i);
+		//out[i] = out[i] / ((timesCalled * BLOCK_SIZE) - i);
 		std::cout << i << " --> " << out[i] << std::endl;
 	}
 
@@ -57,13 +56,17 @@ int main() {
 }
 
 
-__global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<MAX_LAG, BLOCK_SIZE, std::uint8_t> window, int start, int* out) {
+template <int maxLag, int blockSize, typename Contained>
+__global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<maxLag, blockSize, Contained> window, int start, int* out) {
 	if(threadIdx.x <= MAX_LAG){
 
 		int partialSum = 0;
 		for (int i = 0; i < BLOCK_SIZE; ++i) {
-			if(i+start - threadIdx.x >= 0){
-				partialSum += window[i+start - threadIdx.x] * window[i+start];
+			if(i+start - threadIdx.x >= 0) {
+				int a = window[i + start - threadIdx.x];
+				int b = window[i + start];
+				partialSum += a*b;
+				//partialSum += window[i+start - threadIdx.x] * window[i+start];
 			}
 		}
 		

@@ -5,6 +5,7 @@
 #include <device_launch_parameters.h>
 #include <cmath>
 #include <vector>
+#include <iostream>
 
 namespace AutocorrelationCUDA {
 
@@ -25,8 +26,8 @@ class CudaWindow final {
 
 
 	//Returns the element at position i%size (always positive)
-	__device__ Contained operator[](int i) {
-		return arr[(i%size+size)%size];
+	__device__ Contained operator[](unsigned int i) {
+		return arr[i%size];
 	}
 		
 	
@@ -35,6 +36,10 @@ class CudaWindow final {
 		cudaMemcpy(arr + (currentBlock * blockSize), source.data(), source.size() * sizeof(Contained), direction);
 		currentBlock = (++currentBlock) % blocksCount();
 		return currentBlock;
+	}
+
+	__host__ void clean() {
+		cudaFree(arr);
 	}
 
 
@@ -48,6 +53,7 @@ class CudaWindow final {
 	Contained* arr;
 	int currentBlock = 0;
 	int size;
+
 };
 
 }
