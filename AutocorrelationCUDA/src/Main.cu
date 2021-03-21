@@ -20,7 +20,7 @@ __global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<maxLag, blockSize,
 int main() {
 	
 	//open file where data is stored
-	AutocorrelationCUDA::DataFile<std::uint8_t> dataFile{"C:\\", "test1"};
+	AutocorrelationCUDA::DataFile<std::uint8_t> dataFile{"", "test1"};
 	
 	//array in GPU memory to store output data
 	int* out_d;
