@@ -3,16 +3,18 @@
 #include "Feeder.h"
 #include "DataFile.h"
 #include "CudaWindow.h"
+#include "CudaInput.h"
+#include "InputVector.h"
 #include <iostream>
 #include <chrono>
 #include <thread>
 #include <vector>
+#include <memory>
 
-#define BLOCK_SIZE 10
+#define BLOCK_SIZE 100
 #define MAX_LAG 60
 #define THREADS_PER_BLOCK 32
 
-using namespace std::chrono_literals;
 
 template <int maxLag, int blockSize, typename Contained>
 __global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<maxLag, blockSize, Contained> window, int start, int* out);
@@ -21,7 +23,7 @@ __global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<maxLag, blockSize,
 int main() {
 
 	//open file where data is stored
-	AutocorrelationCUDA::DataFile<std::uint8_t> dataFile{"", "test1"};
+	std::unique_ptr<AutocorrelationCUDA::CudaInput<std::uint8_t>> dataFile = std::make_unique<AutocorrelationCUDA::InputVector<std::uint8_t>>("C:\\", "test1");
 	
 	//array in GPU memory to store output data
 	int* out_d;
@@ -31,10 +33,10 @@ int main() {
 	AutocorrelationCUDA::CudaWindow<MAX_LAG, BLOCK_SIZE, std::uint8_t> window{};
 
 	int timesCalled; //counter
-	dim3 numberOfBlocks = ceil((float)MAX_LAG / THREADS_PER_BLOCK);
+	dim3 numberOfBlocks = ceil((float)MAX_LAG / THREADS_PER_BLOCK); //number of blocks active on the GPU
 
 	for(timesCalled = 0; timesCalled < 16; ++timesCalled) {
-		window.copyBlock(dataFile.read(BLOCK_SIZE), cudaMemcpyHostToDevice); //store in GPU memory one block of data
+		window.copyBlock(dataFile->read(BLOCK_SIZE), cudaMemcpyHostToDevice); //store in GPU memory one block of data
 		autocorrelate <<< numberOfBlocks, THREADS_PER_BLOCK >>> (window, timesCalled * BLOCK_SIZE, out_d);
 	}
 
@@ -46,12 +48,12 @@ int main() {
 
 	std::cout << timesCalled << "\n";
 	for (int i = 0; i < MAX_LAG; ++i) {
-		//out[i] = out[i] / ((timesCalled * BLOCK_SIZE) - i);
+		out[i] = out[i] / ((timesCalled * BLOCK_SIZE) - i);
 		std::cout << i << " --> " << out[i] << std::endl;
 	}
 
 	//write output to file
-	dataFile.write<int>(out);
+	//static_cast<AutocorrelationCUDA::DataFile<std::uint8_t>*>(dataFile.get())->write<int>(out);
 
 	
 

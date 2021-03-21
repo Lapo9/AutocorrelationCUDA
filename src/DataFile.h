@@ -5,6 +5,7 @@
 #include <fstream>
 #include <vector>
 #include <iostream>
+#include "CudaInput.h"
 
 
 namespace AutocorrelationCUDA {
@@ -21,7 +22,7 @@ std::istream& operator>>(std::istream& file, std::uint8_t& val) {
 
 //this class is a simple helper to read the file where test data is stored
 template<typename ContainedType>
-class DataFile final {
+class DataFile final : public CudaInput<ContainedType> {
 	
 	public:
 
@@ -32,7 +33,7 @@ class DataFile final {
 	}
 
 	//Read valsToRead values and return them in an array. If valsToRead is less then the remaining length of the file, read till eof.
-	std::vector<ContainedType> read(const int valsToRead){
+	std::vector<ContainedType> read(unsigned int valsToRead){
 		std::vector<ContainedType> vals{};
 		ContainedType tmp;
 
@@ -55,6 +56,7 @@ class DataFile final {
 
 		return vals;
 	}
+
 
 	//Write the vector to a file named as the input file with suffix "_out". 
 	//The file is saved in the current directory.
