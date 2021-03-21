@@ -9,7 +9,8 @@
 #include <vector>
 
 #define BLOCK_SIZE 10
-#define MAX_LAG 30
+#define MAX_LAG 60
+#define THREADS_PER_BLOCK 32
 
 using namespace std::chrono_literals;
 
@@ -18,7 +19,7 @@ __global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<maxLag, blockSize,
 
 
 int main() {
-	
+
 	//open file where data is stored
 	AutocorrelationCUDA::DataFile<std::uint8_t> dataFile{"", "test1"};
 	
@@ -29,11 +30,12 @@ int main() {
 	//create circular array in GPU memory
 	AutocorrelationCUDA::CudaWindow<MAX_LAG, BLOCK_SIZE, std::uint8_t> window{};
 
-	int timesCalled = 0; //counter
+	int timesCalled; //counter
+	dim3 numberOfBlocks = ceil((float)MAX_LAG / THREADS_PER_BLOCK);
 
 	for(timesCalled = 0; timesCalled < 16; ++timesCalled) {
 		window.copyBlock(dataFile.read(BLOCK_SIZE), cudaMemcpyHostToDevice); //store in GPU memory one block of data
-		autocorrelate <<< 1, MAX_LAG >>> (window, timesCalled * BLOCK_SIZE, out_d);
+		autocorrelate <<< numberOfBlocks, THREADS_PER_BLOCK >>> (window, timesCalled * BLOCK_SIZE, out_d);
 	}
 
 	//copy output data from GPU to CPU
@@ -59,17 +61,17 @@ int main() {
 template <int maxLag, int blockSize, typename Contained>
 __global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<maxLag, blockSize, Contained> window, int start, int* out) {
 	if(threadIdx.x <= MAX_LAG){
-
+		int absoluteThreadsIdx = blockIdx.x * blockDim.x + threadIdx.x;
 		int partialSum = 0;
 		for (int i = 0; i < BLOCK_SIZE; ++i) {
-			if(i+start - threadIdx.x >= 0) {
-				int a = window[i + start - threadIdx.x];
+			if(i+start - absoluteThreadsIdx >= 0) {
+				int a = window[i + start - absoluteThreadsIdx];
 				int b = window[i + start];
 				partialSum += a*b;
 				//partialSum += window[i+start - threadIdx.x] * window[i+start];
 			}
 		}
 		
-		out[threadIdx.x] += partialSum;
+		out[absoluteThreadsIdx] += partialSum;
 	}
 }
