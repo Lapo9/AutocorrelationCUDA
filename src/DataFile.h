@@ -6,6 +6,7 @@
 #include <vector>
 #include <iostream>
 #include "CudaInput.h"
+#include "Timer.h"
 
 
 namespace AutocorrelationCUDA {
@@ -61,8 +62,8 @@ class DataFile final : public CudaInput<ContainedType> {
 	//Write the vector to a file named as the input file with suffix "_out". 
 	//The file is saved in the current directory.
 	template <typename OutType = ContainedType>
-	void write(const std::vector<OutType>& data, const std::string& separator = "\n"){
-		std::fstream out{fileName + "_out" + format, std::ios_base::out};
+	static void write(const std::vector<OutType>& data, const std::string& name = "out_data.txt", const std::string& separator = "\n"){
+		std::fstream out{name, std::ios_base::out};
 		for (OutType val : data) {
 			out << val << separator;
 		}

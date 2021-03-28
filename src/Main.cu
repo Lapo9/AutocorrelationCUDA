@@ -34,10 +34,17 @@ int main() {
 
 	int timesCalled; //counter
 	dim3 numberOfBlocks = ceil((float)MAX_LAG / THREADS_PER_BLOCK); //number of blocks active on the GPU
+	
+	//timer
+	AutocorrelationCUDA::Timer timer{[](std::vector<double> data){AutocorrelationCUDA::DataFile<double>::write(data, "timer_out.txt");},
+									 [](){return 1.234;}};
 
 	for(timesCalled = 0; timesCalled < 16; ++timesCalled) {
+		timer.start();
 		window.copyBlock(dataFile->read(BLOCK_SIZE), cudaMemcpyHostToDevice); //store in GPU memory one block of data
 		autocorrelate <<< numberOfBlocks, THREADS_PER_BLOCK >>> (window, timesCalled * BLOCK_SIZE, out_d);
+		cudaDeviceSynchronize();
+		timer.getInterval();
 	}
 
 	//copy output data from GPU to CPU
@@ -53,7 +60,8 @@ int main() {
 	}
 
 	//write output to file
-	//static_cast<AutocorrelationCUDA::DataFile<std::uint8_t>*>(dataFile.get())->write<int>(out);
+	AutocorrelationCUDA::DataFile<int>::write(out);
+
 
 	
 

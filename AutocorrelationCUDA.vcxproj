@@ -24,6 +24,7 @@
     <ClInclude Include="src\DataFile.h" />
     <ClInclude Include="src\Feeder.h" />
     <ClInclude Include="src\InputVector.h" />
+    <ClInclude Include="src\Timer.h" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="src\Main.cu" />
