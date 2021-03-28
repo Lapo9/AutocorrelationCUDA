@@ -42,56 +42,78 @@ int gettimeofday(struct timeval* tp, struct timezone* tzp)
 #include <vector>
 #include <memory>
 
-#define BLOCK_SIZE 100
-#define MAX_LAG 60
-#define THREADS_PER_BLOCK 32
+#define BLOCK_SIZE_DEFAULT 3200
+#define MAX_LAG_DEFAULT 1000
+#define THREADS_PER_BLOCK_DEFAULT 256
+#define REPETITIONS_DEFAULT 1000
 
 using namespace std::literals::chrono_literals;
 
-template <int maxLag, int blockSize, typename Contained>
-__global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<maxLag, blockSize, Contained> window, int start, int* out);
+template <typename Contained>
+__global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<Contained> window, int start, int maxLag, int blockSize, int* out);
+
+
+
+std::vector<int> askParameters() {
+	std::vector<int> result;
+	int tmp;
+
+	std::cout << "\nInsert 0 for default parameter\n";
+	std::cout << "\nblock size: ";			std::cin >> tmp;	result.emplace_back(tmp <= 0 ? BLOCK_SIZE_DEFAULT : tmp);
+	std::cout << "\nmax lag: ";				std::cin >> tmp;	result.emplace_back(tmp <= 0 ? MAX_LAG_DEFAULT : tmp);
+	std::cout << "\nthreads per block: ";	std::cin >> tmp;	result.emplace_back(tmp <= 0 ? THREADS_PER_BLOCK_DEFAULT : tmp);
+	std::cout << "\nrepetitions: ";			std::cin >> tmp;	result.emplace_back(tmp <= 0 ? REPETITIONS_DEFAULT : tmp);
+
+	return result;
+}
+
 
 
 int main() {
+	
+	//ask parameters to user
+	std::vector<int> params = askParameters();
+	const int blockSize = params[0];
+	const int maxLag = params[1];
+	const int threadsPerBlock = params[2];
+	const int repetitions = params[3];
 
 	//open file where data is stored
 	std::unique_ptr<AutocorrelationCUDA::CudaInput<std::uint8_t>> dataFile = std::make_unique<AutocorrelationCUDA::InputVector<std::uint8_t>>("", "test1");
 	
 	//array in GPU memory to store output data
 	int* out_d;
-	cudaMalloc(&out_d, MAX_LAG * sizeof(int));
+	cudaMalloc(&out_d, maxLag * sizeof(int));
 
 	//create circular array in GPU memory
-	AutocorrelationCUDA::CudaWindow<MAX_LAG, BLOCK_SIZE, std::uint8_t> window{};
+	AutocorrelationCUDA::CudaWindow<std::uint8_t> window{maxLag, blockSize};
 
 	int timesCalled; //counter
-	dim3 numberOfBlocks = ceil((float)MAX_LAG / THREADS_PER_BLOCK); //number of blocks active on the GPU
+	dim3 numberOfBlocks = ceil((float)maxLag / threadsPerBlock); //number of blocks active on the GPU
 	
 	//timer
 	AutocorrelationCUDA::Timer timer{[](std::vector<double> data){AutocorrelationCUDA::DataFile<double>::write(data, "out_timer.txt");},
 									 [](){struct timeval tp;
 									      gettimeofday(&tp, NULL);
-									      return ((double)tp.tv_sec + (double)tp.tv_usec * 1.e-6);}};
+									      return ((double)tp.tv_sec + (double)tp.tv_usec * 0.000001);}};
 	timer.start();
-	for(timesCalled = 0; timesCalled < 16; ++timesCalled) {
-		window.copyBlock(dataFile->read(BLOCK_SIZE), cudaMemcpyHostToDevice); //store in GPU memory one block of data
-		autocorrelate <<< numberOfBlocks, THREADS_PER_BLOCK >>> (window, timesCalled * BLOCK_SIZE, out_d);
-		cudaDeviceSynchronize();
-		
-		if(timesCalled == 9) {std::this_thread::sleep_for(100ms);}		
-
+	for(timesCalled = 0; timesCalled < repetitions; ++timesCalled) {
+		window.copyBlock(dataFile->read(blockSize), cudaMemcpyHostToDevice); //store in GPU memory one block of data
+		timer.getInterval();
+		autocorrelate <<< numberOfBlocks, threadsPerBlock >>> (window, timesCalled * blockSize, maxLag, blockSize, out_d);
+		cudaDeviceSynchronize();	
 		timer.getInterval();
 	}
 
 	//copy output data from GPU to CPU
-	std::vector<int> out(MAX_LAG);
-	cudaMemcpy(out.data(), out_d, MAX_LAG * sizeof(int), cudaMemcpyDeviceToHost);
+	std::vector<int> out(maxLag);
+	cudaMemcpy(out.data(), out_d, maxLag * sizeof(int), cudaMemcpyDeviceToHost);
 
 	window.clean(); //deallocates memory on GPU
 
 	std::cout << timesCalled << "\n";
-	for (int i = 0; i < MAX_LAG; ++i) {
-		out[i] = out[i] / ((timesCalled * BLOCK_SIZE) - i);
+	for (int i = 0; i < maxLag; ++i) {
+		out[i] = out[i] / ((timesCalled * blockSize) - i);
 		std::cout << i << " --> " << out[i] << std::endl;
 	}
 
@@ -101,12 +123,12 @@ int main() {
 }
 
 
-template <int maxLag, int blockSize, typename Contained>
-__global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<maxLag, blockSize, Contained> window, int start, int* out) {
-	if(threadIdx.x <= MAX_LAG){
+template <typename Contained>
+__global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<Contained> window, int start, int maxLag, int blockSize, int* out) {
+	if(threadIdx.x <= maxLag){
 		int absoluteThreadsIdx = blockIdx.x * blockDim.x + threadIdx.x;
 		int partialSum = 0;
-		for (int i = 0; i < BLOCK_SIZE; ++i) {
+		for (int i = 0; i < blockSize; ++i) {
 			if(i+start - absoluteThreadsIdx >= 0) {
 				int a = window[i + start - absoluteThreadsIdx];
 				int b = window[i + start];

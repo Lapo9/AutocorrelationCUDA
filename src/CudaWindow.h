@@ -11,7 +11,7 @@ namespace AutocorrelationCUDA {
 
 
 //A class that creates a circular array on the GPU and a method to fill in the array from CPU
-template<int maxLag, int blockSize, typename Contained>
+template<typename Contained>
 class CudaWindow final {
 	
 	public:
@@ -19,7 +19,7 @@ class CudaWindow final {
 	//Allocates the array on the GPU.
 	//The array is divided into blocks, CPU should add data to the array in amounts that match the block size.
 	//The array on the GPU is designed to store as many blocks as necessary, based on the maxLag parameter (look at Algorithm_visualization.xlsm to understand the formula).
-	__host__ CudaWindow() {
+	__host__ CudaWindow(int maxLag, int blockSize) : blockSize{blockSize}, maxLag{maxLag}{
 		size = (ceil((float)(maxLag - 1) / blockSize) + 1) * blockSize;
 		cudaMalloc(&arr, size * sizeof(Contained));
 	}
@@ -53,6 +53,8 @@ class CudaWindow final {
 	Contained* arr;
 	int currentBlock = 0;
 	int size;
+	const int blockSize;
+	const int maxLag;
 
 };
 

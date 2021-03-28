@@ -14,6 +14,7 @@ class Timer final {
 	Timer(std::function<void(std::vector<double>)> finalAction, std::function<double()> getCurrentTime) : finalAction{finalAction}, getCurrentTime{getCurrentTime} {}
 	
 	~Timer() {
+		results.emplace_back(getCurrentTime() - startTime);
 		finalAction(results);
 	}
 
@@ -24,14 +25,19 @@ class Timer final {
 
 
 	void start() {
-		startTime = getCurrentTime();
+		startTime = intervalTime = getCurrentTime();
 	}
 
 
 	void getInterval() {
 		double stopTime = getCurrentTime();
-		results.emplace_back(stopTime-startTime);
-		startTime = stopTime;
+		results.emplace_back(stopTime-intervalTime);
+		intervalTime = stopTime;
+	}
+
+
+	void startInterval() {
+		intervalTime = getCurrentTime();;
 	}
 
 
@@ -39,6 +45,7 @@ class Timer final {
 	private:
 
 	double startTime;
+	double intervalTime;
 	std::vector<double> results;
 	std::function<double()> getCurrentTime;
 	std::function<void(std::vector<double>)> finalAction;
