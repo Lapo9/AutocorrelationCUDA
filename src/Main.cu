@@ -31,14 +31,11 @@ int gettimeofday(struct timeval* tp, struct timezone* tzp)
 
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
-#include "Feeder.h"
 #include "DataFile.h"
 #include "CudaWindow.h"
 #include "CudaInput.h"
 #include "InputVector.h"
 #include <iostream>
-#include <chrono>
-#include <thread>
 #include <vector>
 #include <memory>
 
@@ -47,16 +44,15 @@ int gettimeofday(struct timeval* tp, struct timezone* tzp)
 #define THREADS_PER_BLOCK_DEFAULT 256
 #define REPETITIONS_DEFAULT 1000
 
-using namespace std::literals::chrono_literals;
 
 template <typename Contained>
-__global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<Contained> window, int start, int maxLag, int blockSize, int* out);
+__global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<Contained> window, std::uint_fast32_t start, std::uint_fast32_t maxLag, std::uint_fast32_t blockSize, std::uint_fast32_t* out);
 
 
 
-std::vector<int> askParameters() {
-	std::vector<int> result;
-	int tmp;
+std::vector<std::uint_fast32_t> askParameters() {
+	std::vector<std::uint_fast32_t> result;
+	std::uint_fast32_t tmp;
 
 	std::cout << "\nInsert 0 for default parameter\n";
 	std::cout << "\nblock size: ";			std::cin >> tmp;	result.emplace_back(tmp <= 0 ? BLOCK_SIZE_DEFAULT : tmp);
@@ -69,26 +65,26 @@ std::vector<int> askParameters() {
 
 
 
-int main() {
+std::uint_fast32_t main() {
 	
 	//ask parameters to user
-	std::vector<int> params = askParameters();
-	const int blockSize = params[0];
-	const int maxLag = params[1];
-	const int threadsPerBlock = params[2];
-	const int repetitions = params[3];
+	std::vector<std::uint_fast32_t> params = askParameters();
+	const std::uint_fast32_t blockSize = params[0];
+	const std::uint_fast32_t maxLag = params[1];
+	const std::uint_fast32_t threadsPerBlock = params[2];
+	const std::uint_fast32_t repetitions = params[3];
 
 	//open file where data is stored
 	std::unique_ptr<AutocorrelationCUDA::CudaInput<std::uint8_t>> dataFile = std::make_unique<AutocorrelationCUDA::InputVector<std::uint8_t>>("", "test1");
 	
 	//array in GPU memory to store output data
-	int* out_d;
-	cudaMalloc(&out_d, maxLag * sizeof(int));
+	std::uint_fast32_t* out_d;
+	cudaMalloc(&out_d, maxLag * sizeof(std::uint_fast32_t));
 
 	//create circular array in GPU memory
 	AutocorrelationCUDA::CudaWindow<std::uint8_t> window{maxLag, blockSize};
 
-	int timesCalled; //counter
+	std::uint_fast32_t timesCalled; //counter
 	dim3 numberOfBlocks = ceil((float)maxLag / threadsPerBlock); //number of blocks active on the GPU
 	
 	//timer
@@ -96,6 +92,7 @@ int main() {
 									 [](){struct timeval tp;
 									      gettimeofday(&tp, NULL);
 									      return ((double)tp.tv_sec + (double)tp.tv_usec * 0.000001);}};
+	
 	timer.start();
 	for(timesCalled = 0; timesCalled < repetitions; ++timesCalled) {
 		window.copyBlock(dataFile->read(blockSize), cudaMemcpyHostToDevice); //store in GPU memory one block of data
@@ -106,34 +103,34 @@ int main() {
 	}
 
 	//copy output data from GPU to CPU
-	std::vector<int> out(maxLag);
-	cudaMemcpy(out.data(), out_d, maxLag * sizeof(int), cudaMemcpyDeviceToHost);
+	std::vector<std::uint_fast32_t> out(maxLag);
+	cudaMemcpy(out.data(), out_d, maxLag * sizeof(std::uint_fast32_t), cudaMemcpyDeviceToHost);
 
 	window.clean(); //deallocates memory on GPU
 
 	std::cout << timesCalled << "\n";
-	for (int i = 0; i < maxLag; ++i) {
+	for (std::uint_fast32_t i = 0; i < maxLag; ++i) {
 		out[i] = out[i] / ((timesCalled * blockSize) - i);
 		std::cout << i << " --> " << out[i] << std::endl;
 	}
 
 	//write output to file
-	AutocorrelationCUDA::DataFile<int>::write(out);
+	AutocorrelationCUDA::DataFile<std::uint_fast32_t>::write(out);
 
 }
 
 
 template <typename Contained>
-__global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<Contained> window, int start, int maxLag, int blockSize, int* out) {
-	if(threadIdx.x <= maxLag){
-		int absoluteThreadsIdx = blockIdx.x * blockDim.x + threadIdx.x;
-		int partialSum = 0;
-		for (int i = 0; i < blockSize; ++i) {
+__global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<Contained> window, std::uint_fast32_t start, std::uint_fast32_t maxLag, std::uint_fast32_t dataSize, std::uint_fast32_t* out) {
+	std::uint_fast32_t absoluteThreadsIdx = blockIdx.x * blockDim.x + threadIdx.x;
+	if(absoluteThreadsIdx < maxLag){
+		std::uint_fast32_t partialSum = 0;
+		for (std::uint_fast32_t i = 0; i < dataSize; ++i) {
 			if(i+start - absoluteThreadsIdx >= 0) {
-				int a = window[i + start - absoluteThreadsIdx];
-				int b = window[i + start];
-				partialSum += a*b;
-				//partialSum += window[i+start - threadIdx.x] * window[i+start];
+				/*std::uint_fast32_t a = window[i + start - absoluteThreadsIdx];
+				std::uint_fast32_t b = window[i + start];
+				partialSum += a*b;*/
+				partialSum += window[i+start - absoluteThreadsIdx] * window[i+start];
 			}
 		}
 		

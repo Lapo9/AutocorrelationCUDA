@@ -13,7 +13,7 @@ namespace AutocorrelationCUDA {
 	
 //it is common to pass to this class a file that contains uint8_t, but the common >> operator would read them as char (for example 2 -> '2' = 55). We have to read 2 as 2 (numerical value).
 std::istream& operator>>(std::istream& file, std::uint8_t& val) {
-		int numVal;
+		std::uint_fast32_t numVal;
 		file >> numVal;
 		val = numVal;
 		return file;
@@ -34,11 +34,11 @@ class DataFile final : public CudaInput<ContainedType> {
 	}
 
 	//Read valsToRead values and return them in an array. If valsToRead is less then the remaining length of the file, read till eof.
-	std::vector<ContainedType> read(unsigned int valsToRead){
+	std::vector<ContainedType> read(std::uint_fast32_t valsToRead){
 		std::vector<ContainedType> vals{};
 		ContainedType tmp;
 
-		for(int i = 0; i < valsToRead && file >> tmp; ++i) {
+		for(std::uint_fast32_t i = 0; i < valsToRead && file >> tmp; ++i) {
 			vals.push_back(tmp);
 		}
 

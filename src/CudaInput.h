@@ -9,7 +9,7 @@ template <typename OutType>
 class CudaInput {
 	public:
 	virtual std::vector<OutType> read() = 0;
-	virtual std::vector<OutType> read(unsigned int valsToRead) = 0;
+	virtual std::vector<OutType> read(std::uint_fast32_t valsToRead) = 0;
 };
 }
 

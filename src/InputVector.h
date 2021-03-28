@@ -23,10 +23,10 @@ class InputVector final : public CudaInput<OutType> {
 		return std::vector<OutType>{base};
 	}
 
-	std::vector<OutType> read(unsigned int valsToRead) {
+	std::vector<OutType> read(std::uint_fast32_t valsToRead) {
 		std::vector<OutType> out(valsToRead);
 
-		for (int i = 0; i < valsToRead; ++i) {
+		for (std::uint_fast32_t i = 0; i < valsToRead; ++i) {
 			out[i] = base[pos%base.size()];
 			pos++;
 		}
@@ -36,7 +36,7 @@ class InputVector final : public CudaInput<OutType> {
 
 	private:
 	std::vector<OutType> base;
-	unsigned int pos = 0;
+	std::uint_fast32_t pos = 0;
 };
 
 }
