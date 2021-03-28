@@ -29,9 +29,9 @@ class Timer final {
 
 
 	void getInterval() {
-		double interval = getCurrentTime();
-		results.emplace_back(interval);
-		startTime = interval;
+		double stopTime = getCurrentTime();
+		results.emplace_back(stopTime-startTime);
+		startTime = stopTime;
 	}
 
 

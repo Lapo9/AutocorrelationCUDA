@@ -1,4 +1,34 @@
-﻿#include <sys/time.h>
+﻿#ifdef _WIN32
+#include <WinSock2.h>
+#include <Windows.h>
+#include <stdint.h>
+
+int gettimeofday(struct timeval* tp, struct timezone* tzp)
+{
+	// Note: some broken versions only have 8 trailing zero's, the correct epoch has 9 trailing zero's
+	// This magic number is the number of 100 nanosecond intervals since January 1, 1601 (UTC)
+	// until 00:00:00 January 1, 1970 
+	static const uint64_t EPOCH = ((uint64_t)116444736000000000ULL);
+
+	SYSTEMTIME  system_time;
+	FILETIME    file_time;
+	uint64_t    time;
+
+	GetSystemTime(&system_time);
+	SystemTimeToFileTime(&system_time, &file_time);
+	time = ((uint64_t)file_time.dwLowDateTime);
+	time += ((uint64_t)file_time.dwHighDateTime) << 32;
+
+	tp->tv_sec = (long)((time - EPOCH) / 10000000L);
+	tp->tv_usec = (long)(system_time.wMilliseconds * 1000);
+	return 0;
+}
+
+#else
+#include <sys/time.h>
+#endif
+
+
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include "Feeder.h"
@@ -38,7 +68,7 @@ int main() {
 	dim3 numberOfBlocks = ceil((float)MAX_LAG / THREADS_PER_BLOCK); //number of blocks active on the GPU
 	
 	//timer
-	AutocorrelationCUDA::Timer timer{[](std::vector<double> data){AutocorrelationCUDA::DataFile<double>::write(data, "timer_out.txt");},
+	AutocorrelationCUDA::Timer timer{[](std::vector<double> data){AutocorrelationCUDA::DataFile<double>::write(data, "out_timer.txt");},
 									 [](){struct timeval tp;
 									      gettimeofday(&tp, NULL);
 									      return ((double)tp.tv_sec + (double)tp.tv_usec * 1.e-6);}};
