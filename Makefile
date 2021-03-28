@@ -10,8 +10,8 @@ CUDAFLAGS=--ptxas-options=-v -O4 -m64 -arch compute_61 -code sm_61 -Xptxas -dlcm
 all: main
 
 clean:
-	rm -f *.o main
+	rm -f *.o main out_data.txt timer_out.txt
 
-main: src/CudaWindow.h  src/DataFile.h  src/Feeder.h src/Main.cu
+main: src/CudaInput.h src/InputVector.h src/CudaWindow.h  src/DataFile.h  src/Timer.h src/Main.cu
 	$(NVCC) $(CUDAFLAGS) src/Main.cu -o main
 

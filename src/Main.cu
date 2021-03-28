@@ -1,4 +1,5 @@
-﻿#include <cuda_runtime.h>
+﻿#include <sys/time.h>
+#include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include "Feeder.h"
 #include "DataFile.h"
@@ -15,6 +16,7 @@
 #define MAX_LAG 60
 #define THREADS_PER_BLOCK 32
 
+using namespace std::literals::chrono_literals;
 
 template <int maxLag, int blockSize, typename Contained>
 __global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<maxLag, blockSize, Contained> window, int start, int* out);
@@ -23,7 +25,7 @@ __global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<maxLag, blockSize,
 int main() {
 
 	//open file where data is stored
-	std::unique_ptr<AutocorrelationCUDA::CudaInput<std::uint8_t>> dataFile = std::make_unique<AutocorrelationCUDA::InputVector<std::uint8_t>>("C:\\", "test1");
+	std::unique_ptr<AutocorrelationCUDA::CudaInput<std::uint8_t>> dataFile = std::make_unique<AutocorrelationCUDA::InputVector<std::uint8_t>>("", "test1");
 	
 	//array in GPU memory to store output data
 	int* out_d;
@@ -37,13 +39,17 @@ int main() {
 	
 	//timer
 	AutocorrelationCUDA::Timer timer{[](std::vector<double> data){AutocorrelationCUDA::DataFile<double>::write(data, "timer_out.txt");},
-									 [](){return 1.234;}};
-
+									 [](){struct timeval tp;
+									      gettimeofday(&tp, NULL);
+									      return ((double)tp.tv_sec + (double)tp.tv_usec * 1.e-6);}};
+	timer.start();
 	for(timesCalled = 0; timesCalled < 16; ++timesCalled) {
-		timer.start();
 		window.copyBlock(dataFile->read(BLOCK_SIZE), cudaMemcpyHostToDevice); //store in GPU memory one block of data
 		autocorrelate <<< numberOfBlocks, THREADS_PER_BLOCK >>> (window, timesCalled * BLOCK_SIZE, out_d);
 		cudaDeviceSynchronize();
+		
+		if(timesCalled == 9) {std::this_thread::sleep_for(100ms);}		
+
 		timer.getInterval();
 	}
 
@@ -61,9 +67,6 @@ int main() {
 
 	//write output to file
 	AutocorrelationCUDA::DataFile<int>::write(out);
-
-
-	
 
 }
 
