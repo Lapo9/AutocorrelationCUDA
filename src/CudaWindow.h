@@ -28,15 +28,24 @@ class CudaWindow final {
 
 	//Returns the element at position i%size (always positive)
 	__device__ Contained operator[](std::uint_fast32_t i) {
-		return arr[i&(size-1)]; //arr[i%size]
+		return arr[i%size];
+		//return arr[i&(size-1)]; //arr[i%size]
 	}
 		
 	
 	//Copies the vector into the array on GPU memory. Vector size should be the same as blockSize, if not there will be holes in the array.
-	__host__ std::uint_fast32_t copyBlock(const std::vector<Contained>& source, cudaMemcpyKind direction) {
-		cudaMemcpy(arr + (currentBlock * blockSize), source.data(), source.size() * sizeof(Contained), direction);
-		currentBlock = (++currentBlock) % blocksCount();
-		return currentBlock;
+	__host__ void copyBlock(const std::vector<Contained>& source, cudaMemcpyKind direction) {
+		//TODO controllare
+		if (source.size() + nextIndex > size) {
+			cudaMemcpy(arr + nextIndex, source.data(), (size-nextIndex) * sizeof(Contained), direction);
+			cudaMemcpy(arr, source.data(), (source.size() - (size - nextIndex)) * sizeof(Contained), direction);
+			nextIndex = source.size() - (size - nextIndex) + 1;
+		}
+		else{
+			cudaMemcpy(arr + nextIndex, source.data(), source.size() * sizeof(Contained), direction);
+			nextIndex += source.size();
+			nextIndex = nextIndex >= size ? 0 : nextIndex;
+		}
 	}
 
 	__host__ void clean() {
@@ -52,7 +61,7 @@ class CudaWindow final {
 	}
 
 	Contained* arr;
-	std::uint_fast32_t currentBlock = 0;
+	std::uint_fast32_t nextIndex = 0;
 	std::uint_fast32_t size;
 	const std::uint_fast32_t blockSize;
 	const std::uint_fast32_t maxLag;

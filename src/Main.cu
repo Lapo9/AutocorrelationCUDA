@@ -65,7 +65,7 @@ std::vector<std::uint_fast32_t> askParameters() {
 
 
 
-std::uint_fast32_t main() {
+int main() {
 	
 	//ask parameters to user
 	std::vector<std::uint_fast32_t> params = askParameters();
