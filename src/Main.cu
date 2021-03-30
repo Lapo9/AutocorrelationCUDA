@@ -124,17 +124,13 @@ int main() {
 template <typename Contained>
 __global__ void autocorrelate(AutocorrelationCUDA::CudaWindow<Contained> window, std::uint_fast32_t start, std::uint_fast32_t maxLag, std::uint_fast32_t dataSize, std::uint_fast32_t* out) {
 	std::uint_fast32_t absoluteThreadsIdx = blockIdx.x * blockDim.x + threadIdx.x;
-	if(absoluteThreadsIdx < maxLag){
-		std::uint_fast32_t partialSum = 0;
-		for (std::uint_fast32_t i = 0; i < dataSize; ++i) {
-			if(i+start - absoluteThreadsIdx >= 0) {
-				/*std::uint_fast32_t a = window[i + start - absoluteThreadsIdx];
-				std::uint_fast32_t b = window[i + start];
-				partialSum += a*b;*/
-				partialSum += window[i+start - absoluteThreadsIdx] * window[i+start];
-			}
-		}
-		
-		out[absoluteThreadsIdx] += partialSum;
+	
+	//outer cycle -> cycle over all of the new data
+	for (int i = 0; i < dataSize; ++i) {
+		//if(i % 2^absoluteThreadIdx) --> 
+		//		zeroDelay[absoluteThreadsIdx+1] += zeroDelay[absoluteThreadsIdx] (maybe possible in parallel if we hold a local copy of zeroDelay where we can write to, and read from global zeroDelay)
+		//		autocorrelate (parallel)
+		//		shift
+		//		accumulate
 	}
 }
