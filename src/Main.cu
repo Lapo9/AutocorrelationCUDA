@@ -96,6 +96,7 @@ int main() {
 	timer.start();
 	for(timesCalled = 0; timesCalled < repetitions; ++timesCalled) {
 		window.copyBlock(dataFile->read(blockSize), cudaMemcpyHostToDevice); //store in GPU memory one block of data
+		cudaDeviceSynchronize();
 		timer.getInterval();
 		autocorrelate <<< numberOfBlocks, threadsPerBlock >>> (window, timesCalled * blockSize, maxLag, blockSize, out_d);
 		cudaDeviceSynchronize();	

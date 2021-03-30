@@ -28,8 +28,8 @@ class CudaWindow final {
 
 	//Returns the element at position i%size (always positive)
 	__device__ Contained operator[](std::uint_fast32_t i) {
-		return arr[i%size];
-		//return arr[i&(size-1)]; //arr[i%size]
+		//return arr[i%size];
+		return arr[i&(size-1)]; //arr[i%size]
 	}
 		
 	
