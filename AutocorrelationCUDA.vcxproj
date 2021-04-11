@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\BinGroup.h" />
     <ClInclude Include="src\CudaInput.h" />
     <ClInclude Include="src\CudaWindow.h" />
     <ClInclude Include="src\DataFile.h" />

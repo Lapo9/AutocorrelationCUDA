@@ -39,7 +39,7 @@ int gettimeofday(struct timeval* tp, struct timezone* tzp)
 #include <vector>
 #include <memory>
 
-#define BLOCK_SIZE_DEFAULT 3200
+#define BLOCK_SIZE_DEFAULT 3200000
 #define MAX_LAG_DEFAULT 1000
 #define THREADS_PER_BLOCK_DEFAULT 256
 #define REPETITIONS_DEFAULT 1000
