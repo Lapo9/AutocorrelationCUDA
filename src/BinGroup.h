@@ -2,6 +2,8 @@
 #define AUTOCORRELATIONCUDA_BINGROUP
 
 #include <cmath>
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
 
 namespace AutocorrelationCUDA{
 

@@ -20,6 +20,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\BinGroup.h" />
+    <ClInclude Include="src\BinGroupsMultiSensorMemory.h" />
+    <ClInclude Include="src\BinStructure.h" />
     <ClInclude Include="src\CudaInput.h" />
     <ClInclude Include="src\CudaWindow.h" />
     <ClInclude Include="src\DataFile.h" />
