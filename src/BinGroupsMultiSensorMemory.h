@@ -4,12 +4,13 @@
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <memory>
+#include <cmath>
 
 
 
 
 /*
-* 
+ 
 	+-----------+-----------+-----------+-----------+
 	|	group	|	num of	|	num of	|cells per	|
 	|	size	|	groups	|	sensors	|	sensor	|
@@ -38,6 +39,19 @@ class BinGroupsMultiSensorMemory {
 
 	public:
 
+	__host__ BinGroupsMultiSensorMemory(Contained sensors, Contained groups) {
+		Contained groupSize = std::pow(2, SizeExp);
+		Contained cellsPerSensor = groups + groups * (groupSize + 1);
+		std::size_t totalCells = 4 + cellsPerSensor * sensors;
+
+		Contained tmp[4] = {groupSize, groups, sensors, cellsPerSensor};
+
+		cudaMalloc(&arr, totalCells * sizeof(Contained));
+		cudaMemcpy(arr, tmp, 4 * sizeof(Contained), cudaMemcpyHostToDevice);
+	}
+
+
+
 	/**
 	 * @brief Returns the i-th value of the binGroup-th group of the sensor-th sensor
 	 * @param sensor Sensor to return the specifeid value of
@@ -46,10 +60,11 @@ class BinGroupsMultiSensorMemory {
 	 * @return The i-th value of the binGroup-th group of the sensor-th sensor
 	 * @pre \p sensor < sensorsNum(), \p binGroup < groupsNum(), \p i < groupSize() - 1
 	*/
-	__device__ public Contained get(std::uint_fast8_t sensor, std::uint_fast8_t binGroup, std::uint_fast8_t i) {
+	__device__ Contained get(std::uint_fast8_t sensor, std::uint_fast8_t binGroup, std::uint_fast8_t i) {
 		std::uint_fast8_t startOfGroup = getAccumulatorPosPos(); //place where there is the position of the accumulator
-		int pos : SizeExp {arr[startOfGroup] + 1 + i};
-		return arr[startOfGroup + 1 + pos];
+		SizeExpModuleMathUnsignedInt pos;
+		pos.bitfield = arr[startOfGroup] + 1 + i;
+		return arr[startOfGroup + 1 + pos.bitfield];
 	}
 
 
@@ -57,29 +72,76 @@ class BinGroupsMultiSensorMemory {
 	//TODO it is possible to do fewer calculus, indeed all of the functions called redo the call to getAccumulatorPosPos
 	__device__ void shift(std::uint_fast8_t sensor, std::uint_fast8_t binGroup) {
 		decrementAccumulatorPos();
+
+		//if there is next bin group
 		if (binGroup < groupsNum() - 1) {
 			addToAccumulator(sensor, binGroup+1, getAccumulator(sensor, binGroup)); //after the decrement, currentAccumulator is the place where there is the expelled value
+			addToZeroDelay(sensor, binGroup+1, getZeroDelay(sensor, binGroup)); //add current zero delay to the next one
 		}
+
+		//clear current
 		clearAccumulator(sensor, binGroup);
+		clearZeroDelay(sensor, binGroup);
 	}
 
 
 
-	__device__ public Contained getAccumulator(std::uint_fast8_t sensor, std::uint_fast8_t binGroup) {
-		std::uint_fast8_t startOfGroup = getAccumulatorPosPos(); //place where there is the position of the accumulator
-		return arr[startOfGroup+1 + arr[startOfGroup]];
-	}
-
-
-
-	__device__ public Contained getZeroDelay(std::uint_fast8_t sensor, std::uint_fast8_t binGroup) {
+	__device__ Contained getZeroDelay(std::uint_fast8_t sensor, std::uint_fast8_t binGroup) {
 		return arr[4 + sensor * cellsPerSensor() + binGroup];
 	}
 
 
 
+	__device__ void insertNew(Contained datum) {
+		addToAccumulator(0, 0, datum);
+		addToZeroDelay(0, 0, datum);
+	}
+
+
 
 	private:
+
+	__device__ void decrementAccumulatorPos(std::uint_fast8_t sensor, std::uint_fast8_t binGroup) {
+		std::uint_fast8_t startOfGroup = getAccumulatorPosPos(); //place where there is the position of the accumulator
+		SizeExpModuleMathUnsignedInt newPos;
+		newPos.bitfield = arr[startOfGroup] - 1; //does it really work?
+		arr[startOfGroup] = newPos.bitfield;
+	}
+
+
+
+	__device__ Contained getAccumulator(std::uint_fast8_t sensor, std::uint_fast8_t binGroup) {
+		std::uint_fast8_t startOfGroup = getAccumulatorPosPos(); //place where there is the position of the accumulator
+		return arr[startOfGroup + 1 + arr[startOfGroup]];
+	}
+
+
+
+	__device__ void addToAccumulator(std::uint_fast8_t sensor, std::uint_fast8_t binGroup, Contained add) {
+		std::uint_fast8_t startOfGroup = getAccumulatorPosPos(); //place where there is the position of the accumulator
+		arr[startOfGroup + 1 + arr[startOfGroup]] += add;
+	}
+
+
+
+	__device__ void clearAccumulator(std::uint_fast8_t sensor, std::uint_fast8_t binGroup) {
+		std::uint_fast8_t startOfGroup = getAccumulatorPosPos(); //place where there is the position of the accumulator
+		arr[startOfGroup + 1 + arr[startOfGroup]] = 0;
+	}
+
+
+
+	__device__ void addToZeroDelay(std::uint_fast8_t sensor, std::uint_fast8_t binGroup, Contained add) {
+		arr[4 + sensor * groupSize() + binGroup] += add;
+	}
+
+
+
+	__device__ void clearZeroDelay(std::uint_fast8_t sensor, std::uint_fast8_t binGroup, Contained add) {
+		arr[4 + sensor * groupSize() + binGroup] = 0;
+	}
+
+
 
 	__device__ Contained groupSize() {
 		return arr[0];
@@ -94,7 +156,7 @@ class BinGroupsMultiSensorMemory {
 	}
 
 	__device__ Contained cellsPerSensor() {
-		arr[3]
+		arr[3];
 	}
 
 	__device__ Contained getAccumulatorPosPos(std::uint_fast8_t sensor, std::uint_fast8_t binGroup) {
@@ -102,30 +164,13 @@ class BinGroupsMultiSensorMemory {
 		return 4 + sensor * cellsPerSensor() + sensorsNum() + binGroup * groupSize();
 	}
 
-	__device__ void decrementAccumulatorPos(std::uint_fast8_t sensor, std::uint_fast8_t binGroup) {
-		std::uint_fast8_t startOfGroup = getAccumulatorPosPos(); //place where there is the position of the accumulator
-		int newPos : SizeExp {arr[startOfGroup] - 1};
-		arr[startOfGroup] = newPos;
-	}
-
-
-
-	__device__ public void addToAccumulator(std::uint_fast8_t sensor, std::uint_fast8_t binGroup, Contained add) {
-		std::uint_fast8_t startOfGroup = getAccumulatorPosPos(); //place where there is the position of the accumulator
-		arr[startOfGroup + 1 + arr[startOfGroup]] += add;
-	}
-
-
-
-	__device__ public void clearAccumulator(std::uint_fast8_t sensor, std::uint_fast8_t binGroup) {
-		std::uint_fast8_t startOfGroup = getAccumulatorPosPos(); //place where there is the position of the accumulator
-		arr[startOfGroup + 1 + arr[startOfGroup]] = 0;
-	}
-
-
 
 
 	Contained* arr;
+
+	struct SizeExpModuleMathUnsignedInt {
+		unsigned int bitfield : SizeExp;
+	};
 	
 
 };

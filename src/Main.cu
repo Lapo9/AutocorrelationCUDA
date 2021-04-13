@@ -35,6 +35,7 @@ int gettimeofday(struct timeval* tp, struct timezone* tzp)
 #include "CudaWindow.h"
 #include "CudaInput.h"
 #include "InputVector.h"
+#include "BinGroupsMultiSensorMemory.h"
 #include <iostream>
 #include <vector>
 #include <memory>
