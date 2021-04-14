@@ -19,14 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\BinGroup.h" />
     <ClInclude Include="src\BinGroupsMultiSensorMemory.h" />
-    <ClInclude Include="src\BinStructure.h" />
     <ClInclude Include="src\CudaInput.h" />
-    <ClInclude Include="src\CudaWindow.h" />
     <ClInclude Include="src\DataFile.h" />
     <ClInclude Include="src\Feeder.h" />
     <ClInclude Include="src\InputVector.h" />
+    <ClInclude Include="src\ResultArray.h" />
+    <ClInclude Include="src\SensorsDataPacket.h" />
     <ClInclude Include="src\Timer.h" />
   </ItemGroup>
   <ItemGroup>
@@ -88,22 +87,22 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>out\$(Configuration)\</OutDir>
-    <IntDir>out\$(Configuration)\intermediate</IntDir>
+    <IntDir>out\$(Configuration)\intermediate\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>out\$(Configuration)\</OutDir>
-    <IntDir>out\$(Configuration)\intermediate</IntDir>
+    <IntDir>out\$(Configuration)\intermediate\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>out\$(Configuration)\</OutDir>
-    <IntDir>out\$(Configuration)\intermediate</IntDir>
+    <IntDir>out\$(Configuration)\intermediate\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>out\$(Configuration)\</OutDir>
-    <IntDir>out\$(Configuration)\intermediate</IntDir>
+    <IntDir>out\$(Configuration)\intermediate\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
