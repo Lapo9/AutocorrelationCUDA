@@ -45,7 +45,7 @@ int gettimeofday(struct timeval* tp, struct timezone* tzp)
 #define GROUPS_DEFAULT 8
 #define INSTANTS_PER_PACKET_DEFAULT 10
 #define REPETITIONS_DEFAULT 1000
-#define GROUP_SIZE 5
+#define GROUP_SIZE_EXP2 5
 
 
 template <typename Contained, int SizeExp2>
@@ -84,27 +84,41 @@ std::vector<std::uint_fast32_t> askParameters() {
 
 
 
+constexpr int pow(int base, int exp) {
+	if (exp == 0) {
+		return 1;
+	}
+
+	int res = base;
+	for (int i = 1; i < exp; ++i) {
+		res *= base;
+	}
+	return res;
+}
+
+
+
 int main() {
 	
 	//ask parameters to user
 	std::vector<std::uint_fast16_t> params = askParameters();
-	const std::uint_fast16_t sensors = params[0];
-	const std::uint_fast16_t groups = params[1];
-	const std::uint_fast16_t instantsPerPacket = params[2];
-	const std::uint_fast16_t repetitions = params[3];
+	const std::uint_fast32_t sensors = params[0];
+	const std::uint_fast32_t groups = params[1];
+	const std::uint_fast32_t instantsPerPacket = params[2];
+	const std::uint_fast32_t repetitions = params[3];
 
 	dim3 numberOfBlocks = sensors * groups; //number of blocks active on the GPU
-	dim3 threadsPerBlock = GROUP_SIZE;
+	constexpr int threadsPerBlock = pow(2, GROUP_SIZE_EXP2);
 
 	//open file where data is stored
-	std::unique_ptr<AutocorrelationCUDA::CudaInput<std::uint_fast16_t>> dataFile = std::make_unique<AutocorrelationCUDA::InputVector<std::uint_fast16_t>>("", "test1");
+	std::unique_ptr<AutocorrelationCUDA::CudaInput<std::uint_fast8_t>> dataFile = std::make_unique<AutocorrelationCUDA::InputVector<std::uint_fast8_t>>("", "test1");
 	
 
 	//create array where to put new data for the GPU
-	AutocorrelationCUDA::SensorsDataPacket<std::uint_fast16_t> inputArray(sensors, instantsPerPacket);
+	AutocorrelationCUDA::SensorsDataPacket<std::uint_fast8_t> inputArray(sensors, instantsPerPacket);
 
 	//array in GPU of the bin groups structure
-	AutocorrelationCUDA::BinGroupsMultiSensorMemory<std::uint_fast16_t, GROUP_SIZE> binStructure(sensors, groups);
+	AutocorrelationCUDA::BinGroupsMultiSensorMemory<std::uint_fast8_t, threadsPerBlock> binStructure(sensors, groups);
 
 	//output array to store results in GPU
 	auto out = binStructure.generateResultArray();
@@ -136,7 +150,7 @@ int main() {
 
 		for (int lag = 0; lag < out.getMaxLagv(); ++lag) {
 			int curr = out.get(sensor, lag);
-			//int div = (timesCalled*instantsPerPacket) - ((lag/(GROUP_SIZE+1) + 1) * (GROUP_SIZE+1) + lag%(GROUP_SIZE+1));
+			//int div = (timesCalled*instantsPerPacket) - ((lag/(GROUP_SIZE_EXP2+1) + 1) * (GROUP_SIZE_EXP2+1) + lag%(GROUP_SIZE_EXP2+1));
 			int div = 1;
 			float print = (float) curr / div;
 			std::cout << "\n\t" << lag+1 << " --> " << print;

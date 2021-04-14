@@ -12,9 +12,11 @@
 
 /*
 
-			+-------+
-			|	max	|
-			|	lag	|
+			+-------+-------+
+			|	max	|sens-	|
+			|	lag	|	ors	|
+			+-------+-------+
+
 			+-------+-------+-------+-------+-------+----------
 sensor 0	|	lag	|	lag	|	lag	|	lag	|	lag	|	lag	
 	-->		|	1	|	2	|	3	|	4	|	5	|	...	
@@ -41,52 +43,65 @@ class ResultArray final {
 	
 	public:
 
-	__host__ ResultArray(std::uint_fast16_t sensors, Contained maxLag) {
-		this->sensors = sensors;
+	__host__ ResultArray(std::uint_fast32_t sensors, std::uint_fast32_t maxLag) {
+		this->sensorsv = sensors;
 		this->maxLagv = maxLag;
 
-		 cudaMalloc(&arr, (1 + sensors * maxLag) * sizeof(Contained));
-		 cudaMemset(arr, 0, (1 + sensors * maxLag) * sizeof(Contained));
-		 cudaMemcpy(arr, &maxLag, sizeof(Contained), cudaMemcpyHostToDevice);
+		 cudaMalloc(&data, sensors * maxLag * sizeof(Contained));
+		 cudaMemset(data, 0, (1 + sensors * maxLag) * sizeof(Contained));
+
+		 cudaMalloc(&info, 2 * sizeof(std::uint_fast32_t));
+		 std::uint_fast32_t tmp[2] = {maxLag, sensors};
+		 cudaMemcpy(info, tmp, 2 * sizeof(std::uint_fast32_t), cudaMemcpyHostToDevice);
 	}
 
 
-	__device__ void addTo(std::uint_fast16_t sensor, std::uint_fast16_t lag, Contained datum) {
-		arr[1 + sensor * maxLag() + lag] += datum;
+	__device__ void addTo(std::uint_fast32_t sensor, std::uint_fast32_t lag, Contained datum) {
+		data[sensor * maxLag() + lag] += datum;
 	}
 
 
-	__host__ Contained get(std::uint_fast16_t sensor, std::uint_fast16_t lag) {
-		return toVector()[1 + sensor * maxLagv + lag];
+	__host__ Contained get(std::uint_fast32_t sensor, std::uint_fast32_t lag) {
+		return toVector()[sensor * maxLagv + lag];
 	}
 
 
 	__host__ std::vector<Contained> toVector() {		
-		std::vector<Contained> result(maxLagv * sensors);
-		cudaMemcpy(result.data(), arr+2, maxLagv * sensors * sizeof(Contained), cudaMemcpyDeviceToHost);
+		std::vector<Contained> result(maxLagv * sensorsv);
+		cudaMemcpy(result.data(), data, maxLagv * sensorsv * sizeof(Contained), cudaMemcpyDeviceToHost);
 		return result;
 	}
 
 
-	__host__ std::size_t getMaxLagv() {
+	__host__ std::uint_fast32_t getMaxLagv() {
 		return maxLagv;
 	}
 
 
-	__host__ std::size_t getSensors() {
-		return sensors;
+	__host__ std::uint_fast32_t getSensors() {
+		return sensorsv;
 	}
+
+
 
 	private:
 
-	__device__ Contained maxLag() {
-		return arr[0];
+	__device__ std::uint_fast32_t maxLag() {
+		return info[0];
 	}
 
-	Contained* arr;
 
-	std::uint_fast16_t sensors;
-	Contained maxLagv;
+	__device__ std::uint_fast32_t sensors() {
+		return info[1];
+	}
+
+
+
+	Contained* data;
+	std::uint_fast32_t* info;
+
+	std::uint_fast32_t sensorsv;
+	std::uint_fast32_t maxLagv;
 
 };
 }

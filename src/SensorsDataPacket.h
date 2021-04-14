@@ -18,43 +18,46 @@ class SensorsDataPacket final {
 		this->sensors = std::pow(2, sensorsExp2);
 		this->instants = instants;
 
-		cudaMalloc(&arr, sensors * instants);
-		cudaMemset(arr, 0, sensors * instants);
+		cudaMalloc(&data, sensors * instants * sizeof(Contained));
+		cudaMemset(data, 0, sensors * instants);
 		
-		Contained tmp[2] = {sensors, instants};
-		cudaMemcpy(arr, tmp, 2 * sizeof(Contained), cudaMemcpyHostToDevice);
+		std::uint_fast32_t tmp[2] = {sensors, instants};
+		cudaMalloc(&info, 2 * sizeof(Contained));
+		cudaMemcpy(info, tmp, 2 * sizeof(Contained), cudaMemcpyHostToDevice);
 	}
 
 
 
-	__device__ Contained get(std::uint_fast8_t sensor, std::uint_fast8_t instant) {
-		return arr[2 + instant * sensorsNum() + sensor];
+	__device__ Contained get(std::uint_fast32_t sensor, std::uint_fast32_t instant) {
+		return data[instant * sensorsNum() + sensor];
 	}
 
 
 
 	__host__ void setNewDataPacket(const std::vector<Contained>& newData) {
-		cudaMemcpy(arr+2, newData.data(), sensors * instants, cudaMemcpyHostToDevice);
+		cudaMemcpy(data, newData.data(), sensors * instants, cudaMemcpyHostToDevice);
 	}
 
 
 
-	__device__ Contained sensorsNum() {
-		return arr[0];
+	__device__ std::uint_fast32_t sensorsNum() {
+		return info[0];
 	}
 
 
-	__device__ Contained instantsNum() {
-		return arr[1];
+	__device__ std::uint_fast32_t instantsNum() {
+		return info[1];
 	}
 
 
 	private:
 
-	Contained* arr;
+	Contained* data;
+	std::uint_fast32_t* info;
 
-	Contained sensors;
-	Contained instants;
+	std::uint_fast32_t sensors;
+	std::uint_fast32_t instants;
+
 
 };
 }
