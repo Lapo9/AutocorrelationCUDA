@@ -50,13 +50,13 @@ class BinGroupsMultiSensorMemory final {
 		std::uint_fast32_t cellsPerSensor = groups + groups * (groupSizev + 2);
 		std::size_t totalCells = cellsPerSensor * sensors;
 
-		Contained tmp[4] = {groupSizev, groups, sensors, cellsPerSensor};
+		std::uint_fast32_t tmp[4] = {groupSizev, groups, sensors, cellsPerSensor};
 
 		cudaMalloc(&data, totalCells * sizeof(Contained));
 		cudaMemset(data, 0, totalCells * sizeof(Contained));
 
 		cudaMalloc(&info, 4 * sizeof(std::uint_fast32_t));
-		cudaMemcpy(data, tmp, 4 * sizeof(std::uint_fast32_t), cudaMemcpyHostToDevice);
+		cudaMemcpy(info, tmp, 4 * sizeof(std::uint_fast32_t), cudaMemcpyHostToDevice);
 	}
 
 
@@ -158,13 +158,13 @@ class BinGroupsMultiSensorMemory final {
 
 
 	__device__ void addToZeroDelay(std::uint_fast32_t sensor, std::uint_fast32_t binGroup, Contained add) {
-		data[sensor * groupSize() + binGroup] += add;
+		data[sensor * cellsPerSensor() + binGroup] += add;
 	}
 
 
 
 	__device__ void clearZeroDelay(std::uint_fast32_t sensor, std::uint_fast32_t binGroup) {
-		data[sensor * groupSize() + binGroup] = 0;
+		data[sensor * cellsPerSensor() + binGroup] = 0;
 	}
 
 
@@ -179,7 +179,7 @@ class BinGroupsMultiSensorMemory final {
 
 	__device__ Contained getAccumulatorPosPos(std::uint_fast32_t sensor, std::uint_fast32_t binGroup) {
 		//TODO possible proxy, but is it really faster to compare sensor and binGroup to the previous ones (possibly stored as 5th and 6th elements in the array
-		return sensor * cellsPerSensor() + sensorsNum() + binGroup * groupSize();
+		return sensor * cellsPerSensor() + sensorsNum() + binGroup * (groupSize() + 2);
 	}
 
 

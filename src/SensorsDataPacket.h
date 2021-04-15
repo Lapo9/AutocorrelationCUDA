@@ -22,8 +22,8 @@ class SensorsDataPacket final {
 		cudaMemset(data, 0, sensors * instants);
 		
 		std::uint_fast32_t tmp[2] = {sensors, instants};
-		cudaMalloc(&info, 2 * sizeof(Contained));
-		cudaMemcpy(info, tmp, 2 * sizeof(Contained), cudaMemcpyHostToDevice);
+		cudaMalloc(&info, 2 * sizeof(std::uint_fast32_t));
+		cudaMemcpy(info, tmp, 2 * sizeof(std::uint_fast32_t), cudaMemcpyHostToDevice);
 	}
 
 
@@ -35,7 +35,7 @@ class SensorsDataPacket final {
 
 
 	__host__ void setNewDataPacket(const std::vector<Contained>& newData) {
-		cudaMemcpy(data, newData.data(), sensors * instants, cudaMemcpyHostToDevice);
+		cudaMemcpy(data, newData.data(), sensors * instants * sizeof(Contained), cudaMemcpyHostToDevice);
 	}
 
 

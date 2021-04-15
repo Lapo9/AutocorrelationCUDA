@@ -41,10 +41,10 @@ int gettimeofday(struct timeval* tp, struct timezone* tzp)
 #include <vector>
 #include <memory>
 
-#define SENSORS_DEFAULT 128
-#define GROUPS_DEFAULT 8
-#define INSTANTS_PER_PACKET_DEFAULT 10
-#define REPETITIONS_DEFAULT 1000
+#define SENSORS_EXP2_DEFAULT 8
+#define GROUPS_DEFAULT 10
+#define INSTANTS_PER_PACKET_DEFAULT 80000
+#define REPETITIONS_DEFAULT 4
 #define GROUP_SIZE_EXP2 5
 
 
@@ -58,7 +58,7 @@ namespace AutocorrelationCUDA {
 	__device__ static Integer repeatTimes(Integer x, std::int8_t bits) {
 		Integer pow2 = 1;
 		for (std::uint8_t i = 0; i < bits; ++i) {
-			if (x & pow2 != 1) {
+			if ((x & pow2) != 0) {
 				return i + 1;
 			}
 			pow2 = pow2 << 1;
@@ -74,10 +74,10 @@ std::vector<std::uint_fast32_t> askParameters() {
 	std::uint_fast32_t tmp;
 
 	std::cout << "\nInsert 0 for default parameter\n";
-	std::cout << "\nnumber of sensors: ";			std::cin >> tmp;	result.emplace_back(tmp <= 0 ? SENSORS_DEFAULT : tmp);
-	std::cout << "\nnumber of bin groups: ";		std::cin >> tmp;	result.emplace_back(tmp <= 0 ? GROUPS_DEFAULT : tmp);
-	std::cout << "\ninstants in a sigle packet: ";	std::cin >> tmp;	result.emplace_back(tmp <= 0 ? INSTANTS_PER_PACKET_DEFAULT : tmp);
-	std::cout << "\nrepetitions: ";					std::cin >> tmp;	result.emplace_back(tmp <= 0 ? REPETITIONS_DEFAULT : tmp);
+	std::cout << "\nnumber of sensors --> insert a number x, you'll have 2^x sensors: ";std::cin >> tmp;	result.emplace_back(tmp <= 0 ? SENSORS_EXP2_DEFAULT : tmp);
+	std::cout << "\nnumber of bin groups: ";											std::cin >> tmp;	result.emplace_back(tmp <= 0 ? GROUPS_DEFAULT : tmp);
+	std::cout << "\ninstants in a sigle packet: ";										std::cin >> tmp;	result.emplace_back(tmp <= 0 ? INSTANTS_PER_PACKET_DEFAULT : tmp);
+	std::cout << "\nrepetitions: ";														std::cin >> tmp;	result.emplace_back(tmp <= 0 ? REPETITIONS_DEFAULT : tmp);
 
 	return result;
 }
@@ -102,23 +102,24 @@ int main() {
 	
 	//ask parameters to user
 	std::vector<std::uint_fast16_t> params = askParameters();
-	const std::uint_fast32_t sensors = params[0];
+	const std::uint_fast32_t sensorsExp2 = params[0];
 	const std::uint_fast32_t groups = params[1];
 	const std::uint_fast32_t instantsPerPacket = params[2];
 	const std::uint_fast32_t repetitions = params[3];
 
-	dim3 numberOfBlocks = sensors * groups; //number of blocks active on the GPU
+	std::uint_fast32_t sensors = std::pow(2, sensorsExp2);
+	dim3 numberOfBlocks = sensors; //number of blocks active on the GPU
 	constexpr int threadsPerBlock = pow(2, GROUP_SIZE_EXP2);
 
 	//open file where data is stored
-	std::unique_ptr<AutocorrelationCUDA::CudaInput<std::uint_fast8_t>> dataFile = std::make_unique<AutocorrelationCUDA::InputVector<std::uint_fast8_t>>("", "test1");
+	std::unique_ptr<AutocorrelationCUDA::CudaInput<int>> dataFile = std::make_unique<AutocorrelationCUDA::InputVector<int>>("", "test1");
 	
 
 	//create array where to put new data for the GPU
-	AutocorrelationCUDA::SensorsDataPacket<std::uint_fast8_t> inputArray(sensors, instantsPerPacket);
+	AutocorrelationCUDA::SensorsDataPacket<int> inputArray(sensorsExp2, instantsPerPacket);
 
 	//array in GPU of the bin groups structure
-	AutocorrelationCUDA::BinGroupsMultiSensorMemory<std::uint_fast8_t, threadsPerBlock> binStructure(sensors, groups);
+	AutocorrelationCUDA::BinGroupsMultiSensorMemory<int, GROUP_SIZE_EXP2> binStructure(sensors, groups);
 
 	//output array to store results in GPU
 	auto out = binStructure.generateResultArray();
@@ -138,24 +139,24 @@ int main() {
 		inputArray.setNewDataPacket(dataFile->read(sensors * instantsPerPacket)); //store in GPU memory a new block of data to be processed
 		//cudaDeviceSynchronize();
 		//timer.getInterval();
-		autocorrelate <<< numberOfBlocks, threadsPerBlock >>> (inputArray, binStructure, timesCalled * instantsPerPacket, out);
+		//timer.start();
+		autocorrelate <<< numberOfBlocks, threadsPerBlock-1 >>> (inputArray, binStructure, timesCalled * instantsPerPacket, out);
 		//cudaDeviceSynchronize();	
 		timer.getInterval();
 	}
 	
 
-	std::cout << timesCalled << "\n";
+	/*std::cout << timesCalled << "\n";
 	for (int sensor = 0; sensor < out.getSensors(); ++sensor) {
 		std::cout << "\n\n\t======= SENSOR " << sensor << " =======\n";
 
 		for (int lag = 0; lag < out.getMaxLagv(); ++lag) {
 			int curr = out.get(sensor, lag);
-			//int div = (timesCalled*instantsPerPacket) - ((lag/(GROUP_SIZE_EXP2+1) + 1) * (GROUP_SIZE_EXP2+1) + lag%(GROUP_SIZE_EXP2+1));
-			int div = 1;
+			int div = (timesCalled*instantsPerPacket) - lag;
 			float print = (float) curr / div;
 			std::cout << "\n\t" << lag+1 << " --> " << print;
 		}
-	}
+	}*/
 
 	//write output to file
 	//AutocorrelationCUDA::DataFile<std::uint_fast32_t>::write(out);
@@ -179,17 +180,12 @@ __global__ void autocorrelate(AutocorrelationCUDA::SensorsDataPacket<Contained> 
 
 		//calculate autocorrelation for that instant
 		//Decides how many group to calculate, based on how many instants have been already processed (i.e. 1 instant-->0; 2-->0,1; 3-->0; 4-->0,1,2; 5-->0; 6-->0,1; ...)
-		for (std::uint_fast8_t j = 0; j < AutocorrelationCUDA::repeatTimes(instantsProcessed, 32); ++j) {
-			out.addTo(blockIdx.x, threadIdx.x * j, binStructure.getZeroDelay(blockIdx.x, j) * binStructure.get(blockIdx.x, j, threadIdx.x)); //given that each CUDA block has k threads, where k = groupSize()-1
+		std::uint_fast32_t repeatTimes = AutocorrelationCUDA::repeatTimes(instantsProcessed, 32);
+		for (std::uint_fast8_t j = 0; j < repeatTimes; ++j) {
+			out.addTo(blockIdx.x, threadIdx.x + j * blockDim.x, binStructure.getZeroDelay(blockIdx.x, j) * binStructure.get(blockIdx.x, j, threadIdx.x)); //given that each CUDA block has k threads, where k = groupSize()-1
 			binStructure.shift(blockIdx.x, j);
 		}
-
-
-		//if(i % 2^absoluteThreadIdx) --> 
-		//		zeroDelay[absoluteThreadsIdx+1] += zeroDelay[absoluteThreadsIdx] (maybe possible in parallel if we hold a local copy of zeroDelay where we can write to, and read from global zeroDelay)
-		//		autocorrelate (parallel)
-		//		shift
-		//		accumulate
 	}
+
 }
 
