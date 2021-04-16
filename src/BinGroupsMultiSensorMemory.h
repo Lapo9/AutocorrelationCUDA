@@ -11,27 +11,64 @@
 
 /*
  
-	+-----------+-----------+-----------+-----------+
-	|	group	|	num of	|	num of	|cells per	|
-	|	size	|	groups	|	sensorsv	|	sensor	|
-	+-----------+-----------+-----------+-----------+
+			+-----------+-----------+-----------+-----------+
+			|	group	|	num of	|	num of	|cells per	|
+			|	size	|	groups	|	sensors	|	sensor	|
+			+-----------+-----------+-----------+-----------+
 
-	+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+---------
-s.0	|	zero	|	zero	|	zero	|	...		|accumulator|	gr.0	|	gr.0	|	...		|accumulator|	...		|accumulator|	gr.1	|	gr.1	|	...		|accumulator|	...		|	...
--->	|delay gr.0	|delay gr.1	|delay gr.2	|			|	pos gr.0|	pos x	|	pos x+1	|			|	gr.0	|			|	pos gr.1|	pos x	|	pos x+1	|			|	gr.1	|			|
-	+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+---------
-s.1	|	zero	|	zero	|	zero	|	...		|accumulator|	gr.0	|	gr.0	|	...		|accumulator|	...		|accumulator|	gr.1	|	gr.1	|	...		|accumulator|	...		|	...
--->	|delay gr.0	|delay gr.1	|delay gr.2	|			|	pos gr.0|	pos x	|	pos x+1	|			|	gr.0	|			|	pos gr.1|	pos x	|	pos x+1	|			|	gr.1	|			|
-	+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+---------
-s.2	|	zero	|	zero	|	zero	|	...		|accumulator|	gr.0	|	gr.0	|	...		|accumulator|	...		|accumulator|	gr.1	|	gr.1	|	...		|accumulator|	...		|	...
--->	|delay gr.0	|delay gr.1	|delay gr.2	|			|	pos gr.0|	pos x	|	pos x+1	|			|	gr.0	|			|	pos gr.1|	pos x	|	pos x+1	|			|	gr.1	|			|
-	+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+---------
-s.3	|	zero	|	zero	|	zero	|	...		|accumulator|	gr.0	|	gr.0	|	...		|accumulator|	...		|accumulator|	gr.1	|	gr.1	|	...		|accumulator|	...		|	...
--->	|delay gr.0	|delay gr.1	|delay gr.2	|			|	pos gr.0|	pos x	|	pos x+1	|			|	gr.0	|			|	pos gr.1|	pos x	|	pos x+1	|			|	gr.1	|			|
-	+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+---------
-...	|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...
--->	|			|			|			|			|			|			|			|			|			|			|			|			|			|			|			|			|
-	
+
+			+-----------+-----------+-----------+-------
+	sens.0	|	zero	|	zero	|	zero	|	...	
+	-->		|delay gr.0	|delay gr.1	|delay gr.2	|		
+			+-----------+-----------+-----------+-------
+	sens.1	|	zero	|	zero	|	zero	|	...	
+	-->		|delay gr.0	|delay gr.1	|delay gr.2	|		
+			+-----------+-----------+-----------+-------
+	sens.2	|	zero	|	zero	|	zero	|	...	
+	-->		|delay gr.0	|delay gr.1	|delay gr.2	|		
+			+-----------+-----------+-----------+-------
+	sens.3	|	zero	|	zero	|	zero	|	...	
+	-->		|delay gr.0	|delay gr.1	|delay gr.2	|		
+			+-----------+-----------+-----------+-------
+	...		|	...		|	...		|	...		|	...	
+	-->		|			|			|			|		
+
+
+
+			+-----------+-----------+-----------+-------
+	sens.0	|accumulator|accumulator|accumulator|	...
+	-->		|	gr.0	|	gr.1	|	gr.2	|
+			+-----------+-----------+-----------+-------
+	sens.1	|accumulator|accumulator|accumulator|	...
+	-->		|	gr.0	|	gr.1	|	gr.2	|
+			+-----------+-----------+-----------+-------
+	sens.2	|accumulator|accumulator|accumulator|	...
+	-->		|	gr.0	|	gr.1	|	gr.2	|
+			+-----------+-----------+-----------+-------
+	sens.3	|accumulator|accumulator|accumulator|	...
+	-->		|	gr.0	|	gr.1	|	gr.2	|
+			+-----------+-----------+-----------+-------
+	...		|	...		|	...		|	...		|	...
+	-->		|			|			|			|
+
+
+
+			+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+---------
+	sens.0	|	gr.0	|	gr.0	|	...		|accumulator|	...		|accumulator|	gr.1	|	gr.1	|	...		|accumulator|	...		|	...
+	-->		|	pos x	|	pos x+1	|			|	gr.0	|			|	pos gr.1|	pos x	|	pos x+1	|			|	gr.1	|			|
+			+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+---------
+	sens.1	|	gr.0	|	gr.0	|	...		|accumulator|	...		|accumulator|	gr.1	|	gr.1	|	...		|accumulator|	...		|	...
+	-->		|	pos x	|	pos x+1	|			|	gr.0	|			|	pos gr.1|	pos x	|	pos x+1	|			|	gr.1	|			|
+			+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+---------
+	sens.2	|	gr.0	|	gr.0	|	...		|accumulator|	...		|accumulator|	gr.1	|	gr.1	|	...		|accumulator|	...		|	...
+	-->		|	pos x	|	pos x+1	|			|	gr.0	|			|	pos gr.1|	pos x	|	pos x+1	|			|	gr.1	|			|
+			+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+---------
+	sens.3	|	gr.0	|	gr.0	|	...		|accumulator|	...		|accumulator|	gr.1	|	gr.1	|	...		|accumulator|	...		|	...
+	-->		|	pos x	|	pos x+1	|			|	gr.0	|			|	pos gr.1|	pos x	|	pos x+1	|			|	gr.1	|			|
+			+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+---------
+	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...		|	...
+	-->		|			|			|			|			|			|			|			|			|			|			|			|
+		
 */
 
 
@@ -47,14 +84,23 @@ class BinGroupsMultiSensorMemory final {
 		this->sensors = sensors;
 		this->groups = groups;
 
-		std::uint_fast32_t cellsPerSensor = groups + groups * (groupSizev + 2);
-		std::size_t totalCells = cellsPerSensor * sensors;
+		std::uint_fast32_t cellsPerSensor = groups * (groupSizev + 1); //TODO
 
 		std::uint_fast32_t tmp[4] = {groupSizev, groups, sensors, cellsPerSensor};
 
-		cudaMalloc(&data, totalCells * sizeof(Contained));
-		cudaMemset(data, 0, totalCells * sizeof(Contained));
+		//create matrix for data on GPU and fill it with 0
+		cudaMalloc(&data, cellsPerSensor * sensors * sizeof(Contained));
+		cudaMemset(data, 0, cellsPerSensor * sensors * sizeof(Contained));
 
+		//create matrix for zero delay data on GPU and fill it with 0
+		cudaMalloc(&zeroDelays, groups * sensors * sizeof(Contained));
+		cudaMemset(zeroDelays, 0, groups * sensors * sizeof(Contained));
+
+		//create matrix for accumulator positions for each group on GPU and fill it with 0
+		cudaMalloc(&accumulatorsPos, groups * sensors * sizeof(Contained));
+		cudaMemset(accumulatorsPos, 0, groups * sensors * sizeof(Contained));
+
+		//create array for info on GPU and fill it
 		cudaMalloc(&info, 4 * sizeof(std::uint_fast32_t));
 		cudaMemcpy(info, tmp, 4 * sizeof(std::uint_fast32_t), cudaMemcpyHostToDevice);
 	}
@@ -77,10 +123,11 @@ class BinGroupsMultiSensorMemory final {
 	 * @pre \p sensor < sensorsNum(), \p binGroup < groupsNum(), \p i < groupSize() - 1
 	*/
 	__device__ Contained get(std::uint_fast32_t sensor, std::uint_fast32_t binGroup, std::uint_fast32_t i) {
-		std::uint_fast32_t startOfGroup = getAccumulatorPosPos(sensor, binGroup); //place where there is the position of the accumulator
+		std::uint_fast8_t accumulatorRelativePos = getAccumulatorRelativePos(sensor, binGroup);
+		std::uint_fast32_t startOfGroup = getStartOfGroup(sensor, binGroup);
 		SizeExpModuleMathUnsignedInt pos;
-		pos.bitfield = data[startOfGroup] + 1 + i;
-		return data[startOfGroup + 1 + pos.bitfield];
+		pos.bitfield = accumulatorRelativePos + 1 + i;
+		return data[startOfGroup + pos.bitfield];
 	}
 
 
@@ -103,7 +150,7 @@ class BinGroupsMultiSensorMemory final {
 
 
 	__device__ Contained getZeroDelay(std::uint_fast32_t sensor, std::uint_fast32_t binGroup) {
-		return data[sensor * cellsPerSensor() + binGroup];
+		return zeroDelays[sensor * groupsNum() + binGroup];
 	}
 
 
@@ -128,43 +175,40 @@ class BinGroupsMultiSensorMemory final {
 	private:
 
 	__device__ void decrementAccumulatorPos(std::uint_fast32_t sensor, std::uint_fast32_t binGroup) {
-		std::uint_fast32_t startOfGroup = getAccumulatorPosPos(sensor, binGroup); //place where there is the position of the accumulator
+		std::uint_fast32_t accumulatorPos = getAccumulatorRelativePos(sensor, binGroup);
 		SizeExpModuleMathUnsignedInt newPos;
-		newPos.bitfield = data[startOfGroup] - 1; //does it really work?
-		data[startOfGroup] = newPos.bitfield;
+		newPos.bitfield = accumulatorsPos - 1; //does it really work?
+		accumulatorsPos[accumulatorPos] = newPos.bitfield;
 	}
 
 
 
 	__device__ Contained getAccumulator(std::uint_fast32_t sensor, std::uint_fast32_t binGroup) {
-		std::uint_fast32_t startOfGroup = getAccumulatorPosPos(sensor, binGroup); //place where there is the position of the accumulator
-		return data[startOfGroup + 1 + data[startOfGroup]];
+		return data[getStartOfGroup(sensor, binGroup) + getAccumulatorRelativePos(sensor, binGroup)];
 	}
 
 
 
 	__device__ void addToAccumulator(std::uint_fast32_t sensor, std::uint_fast32_t binGroup, Contained add) {
-		std::uint_fast32_t startOfGroup = getAccumulatorPosPos(sensor, binGroup); //place where there is the position of the accumulator
-		data[startOfGroup + 1 + data[startOfGroup]] += add;
+		data[getStartOfGroup(sensor, binGroup) + getAccumulatorRelativePos(sensor, binGroup)] += add;
 	}
 
 
 
 	__device__ void clearAccumulator(std::uint_fast32_t sensor, std::uint_fast32_t binGroup) {
-		std::uint_fast32_t startOfGroup = getAccumulatorPosPos(sensor, binGroup); //place where there is the position of the accumulator
-		data[startOfGroup + 1 + data[startOfGroup]] = 0;
+		data[getStartOfGroup(sensor, binGroup) + getAccumulatorRelativePos(sensor, binGroup)] = 0;
 	}
 
 
 
 	__device__ void addToZeroDelay(std::uint_fast32_t sensor, std::uint_fast32_t binGroup, Contained add) {
-		data[sensor * cellsPerSensor() + binGroup] += add;
+		zeroDelays[sensor * groupsNum() + binGroup] += add;
 	}
 
 
 
 	__device__ void clearZeroDelay(std::uint_fast32_t sensor, std::uint_fast32_t binGroup) {
-		data[sensor * cellsPerSensor() + binGroup] = 0;
+		zeroDelays[sensor * groupsNum() + binGroup] = 0;
 	}
 
 
@@ -177,14 +221,19 @@ class BinGroupsMultiSensorMemory final {
 		return info[3];
 	}
 
-	__device__ Contained getAccumulatorPosPos(std::uint_fast32_t sensor, std::uint_fast32_t binGroup) {
-		//TODO possible proxy, but is it really faster to compare sensor and binGroup to the previous ones (possibly stored as 5th and 6th elements in the array
-		return sensor * cellsPerSensor() + sensorsNum() + binGroup * (groupSize() + 2);
+	__device__ std::uint_fast32_t getAccumulatorRelativePos(std::uint_fast32_t sensor, std::uint_fast32_t binGroup) {
+		return accumulatorsPos[sensor * groupsNum() + binGroup];
+	}
+
+	__device__ std::uint_fast32_t getStartOfGroup(std::uint_fast32_t sensor, std::uint_fast32_t binGroup) {
+		retun sensor * cellsPerSensor() + binGroup * groupSize();
 	}
 
 
 
 	Contained* data;
+	Contained* zeroDelays;
+	std::uint8_t* accumulatorsPos;
 	std::uint_fast32_t* info;
 
 	std::uint_fast32_t sensors;

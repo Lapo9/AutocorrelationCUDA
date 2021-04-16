@@ -45,7 +45,7 @@ int gettimeofday(struct timeval* tp, struct timezone* tzp)
 #define GROUPS_DEFAULT 10
 #define INSTANTS_PER_PACKET_DEFAULT 80000
 #define REPETITIONS_DEFAULT 4
-#define GROUP_SIZE_EXP2 5
+#define GROUP_SIZE_EXP2 7
 
 
 template <typename Contained, int SizeExp2>
@@ -112,14 +112,14 @@ int main() {
 	constexpr int threadsPerBlock = pow(2, GROUP_SIZE_EXP2);
 
 	//open file where data is stored
-	std::unique_ptr<AutocorrelationCUDA::CudaInput<int>> dataFile = std::make_unique<AutocorrelationCUDA::InputVector<int>>("", "test1");
+	//std::unique_ptr<AutocorrelationCUDA::CudaInput<int>> dataFile = std::make_unique<AutocorrelationCUDA::InputVector<int>>("", "test1");
 	
 
 	//create array where to put new data for the GPU
-	AutocorrelationCUDA::SensorsDataPacket<int> inputArray(sensorsExp2, instantsPerPacket);
+	AutocorrelationCUDA::SensorsDataPacket<std::uint_fast32_t> inputArray(sensorsExp2, instantsPerPacket);
 
 	//array in GPU of the bin groups structure
-	AutocorrelationCUDA::BinGroupsMultiSensorMemory<int, GROUP_SIZE_EXP2> binStructure(sensors, groups);
+	AutocorrelationCUDA::BinGroupsMultiSensorMemory<std::uint_fast32_t, GROUP_SIZE_EXP2> binStructure(sensors, groups);
 
 	//output array to store results in GPU
 	auto out = binStructure.generateResultArray();
@@ -133,15 +133,18 @@ int main() {
 									      gettimeofday(&tp, NULL);
 									      return ((double)tp.tv_sec + (double)tp.tv_usec * 0.000001);}};
 	
+
+	std::vector<std::uint_fast32_t> dataDebug(sensors * instantsPerPacket, 14);
 	std::uint_fast32_t timesCalled; //counter
 	timer.start();
 	for(timesCalled = 0; timesCalled < repetitions; ++timesCalled) {
-		inputArray.setNewDataPacket(dataFile->read(sensors * instantsPerPacket)); //store in GPU memory a new block of data to be processed
+		inputArray.setNewDataPacket(dataDebug); //store in GPU memory a new block of data to be processed
+		//inputArray.setNewDataPacket(dataFile->read(sensors * instantsPerPacket)); //store in GPU memory a new block of data to be processed
 		//cudaDeviceSynchronize();
 		//timer.getInterval();
 		//timer.start();
 		autocorrelate <<< numberOfBlocks, threadsPerBlock-1 >>> (inputArray, binStructure, timesCalled * instantsPerPacket, out);
-		//cudaDeviceSynchronize();	
+		cudaDeviceSynchronize();	
 		timer.getInterval();
 	}
 	
@@ -161,11 +164,14 @@ int main() {
 	//write output to file
 	//AutocorrelationCUDA::DataFile<std::uint_fast32_t>::write(out);
 
+	cudaDeviceReset();
 }
 
 
 template <typename Contained, int SizeExp2>
 __global__ void autocorrelate(AutocorrelationCUDA::SensorsDataPacket<Contained> packet, AutocorrelationCUDA::BinGroupsMultiSensorMemory<Contained, SizeExp2> binStructure, std::uint_fast32_t instantsProcessed, AutocorrelationCUDA::ResultArray<Contained> out) {
+	//TODO put data in shared memory
+
 	std::uint_fast32_t absoluteThreadsIdx = blockIdx.x * blockDim.x + threadIdx.x;
 	Contained instantsNum = packet.instantsNum();
 

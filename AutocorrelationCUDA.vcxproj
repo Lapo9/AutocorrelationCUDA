@@ -120,6 +120,9 @@
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <CodeGeneration>compute_35,sm_35</CodeGeneration>
+      <Optimization>Od</Optimization>
+      <AdditionalOptions>-lineinfo %(AdditionalOptions)</AdditionalOptions>
+      <GPUDebugInfo>false</GPUDebugInfo>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -160,6 +163,9 @@
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <CodeGeneration>compute_35,sm_35</CodeGeneration>
+      <Optimization>Od</Optimization>
+      <AdditionalOptions>-lineinfo %(AdditionalOptions)</AdditionalOptions>
+      <GPUDebugInfo>false</GPUDebugInfo>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
