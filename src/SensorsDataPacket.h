@@ -5,6 +5,7 @@
 #include <device_launch_parameters.h>
 #include <memory>
 #include <cmath>
+#include <iostream>
 
 
 namespace AutocorrelationCUDA {
@@ -14,9 +15,9 @@ class SensorsDataPacket final {
 	
 	public:
 
-	__host__ SensorsDataPacket(unsigned int sensorsExp2, unsigned int instants) {
-		this->sensors = std::pow(2, sensorsExp2);
-		this->instants = instants;
+	__host__ SensorsDataPacket(unsigned int sensorsExp2, unsigned int instants) : sensors{(std::uint_fast32_t)std::pow(2, sensorsExp2)}, instants{instants}{
+		
+		std::cout << "\ninitializing SensorsDataPacket...\n";
 
 		cudaMalloc(&data, sensors * instants * sizeof(Contained));
 		cudaMemset(data, 0, sensors * instants);
@@ -24,6 +25,8 @@ class SensorsDataPacket final {
 		std::uint_fast32_t tmp[2] = {sensors, instants};
 		cudaMalloc(&info, 2 * sizeof(std::uint_fast32_t));
 		cudaMemcpy(info, tmp, 2 * sizeof(std::uint_fast32_t), cudaMemcpyHostToDevice);
+
+		std::cout << "\nSensorsDataPacket done!\n";
 	}
 
 

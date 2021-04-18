@@ -6,6 +6,7 @@
 #include <device_launch_parameters.h>
 #include <memory>
 #include <vector>
+#include <iostream>
 
 
 
@@ -43,9 +44,9 @@ class ResultArray final {
 	
 	public:
 
-	__host__ ResultArray(std::uint_fast32_t sensors, std::uint_fast32_t maxLag) {
-		this->sensorsv = sensors;
-		this->maxLagv = maxLag;
+	__host__ ResultArray(std::uint_fast32_t sensors, std::uint_fast32_t maxLag) : sensorsv{sensors}, maxLagv{maxLag} {
+
+		std::cout << "\ninitializing ResultArray...\n";
 
 		 cudaMalloc(&data, sensors * maxLag * sizeof(Contained));
 		 cudaMemset(data, 0, (1 + sensors * maxLag) * sizeof(Contained));
@@ -53,6 +54,8 @@ class ResultArray final {
 		 cudaMalloc(&info, 2 * sizeof(std::uint_fast32_t));
 		 std::uint_fast32_t tmp[2] = {maxLag, sensors};
 		 cudaMemcpy(info, tmp, 2 * sizeof(std::uint_fast32_t), cudaMemcpyHostToDevice);
+
+		 std::cout << "\nResultArray done!\n";
 	}
 
 

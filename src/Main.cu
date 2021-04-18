@@ -168,30 +168,79 @@ int main() {
 }
 
 
+
+extern __shared__ std::uint_fast8_t sharedMemory[];
+
 template <typename Contained, int SizeExp2>
 __global__ void autocorrelate(AutocorrelationCUDA::SensorsDataPacket<Contained> packet, AutocorrelationCUDA::BinGroupsMultiSensorMemory<Contained, SizeExp2> binStructure, std::uint_fast32_t instantsProcessed, AutocorrelationCUDA::ResultArray<Contained> out) {
-	//TODO put data in shared memory
+	
+	//precondition: blockDim.x = groupSize, blockDim.y = sensorsPerBlock
 
-	std::uint_fast32_t absoluteThreadsIdx = blockIdx.x * blockDim.x + threadIdx.x;
-	Contained instantsNum = packet.instantsNum();
+	std::uint_fast16_t blockDimTot = blockDim.x * blockDim.y;
+	std::uint_fast16_t absoluteY = threadIdx.y + blockIdx.x * blockDim.y;
+	std::uint_fast16_t absoluteID = threadIdx.x + absoluteY * blockDim.x;
+	std::uint_fast16_t relativeID = threadIdx.x + threadIdx.y * blockDim.x;
 
-	//cycle over all of the new data, where i is the instant in time processed
-	for (int i = 0; i < instantsNum; ++i) {
-		instantsProcessed++;
+	//put data in shared memory
+	//TODO probably it is better to load only the most used groups (0, 1, 2, 3), to increase occupancy
+	Contained* data = (Contained*)sharedMemory;
+	std::uint_fast8_t* accumulatorsPos = (std::uint_fast8_t*) &data[blockDim.x * blockDim.y * binStructure.groupsNum()];
+	Contained* zeroDelays = (Contained*) &accumulatorsPos[blockDim.y * binStructure.groupsNum()];
+	std::uint_fast32_t* info = (std::uint_fast32_t*) & zeroDelays[blockDim.y * binStructure.groupsNum()];
+	Contained* output = (Contained*) &info[7];
 
-		//only one thread per sensor adds the new datum to the bin structure
-		if (absoluteThreadsIdx < binStructure.sensorsNum()) {
-			binStructure.insertNew(absoluteThreadsIdx, packet.get(absoluteThreadsIdx, i));
-		}
+	//copy data
+	for (int group = 0; group < binStructure.groupsNum(); ++group) {
+		data[relativeID] = binStructure.get(absoluteY, group, threadIdx.x);
+	}
 
-		//calculate autocorrelation for that instant
-		//Decides how many group to calculate, based on how many instants have been already processed (i.e. 1 instant-->0; 2-->0,1; 3-->0; 4-->0,1,2; 5-->0; 6-->0,1; ...)
-		std::uint_fast32_t repeatTimes = AutocorrelationCUDA::repeatTimes(instantsProcessed, 32);
-		for (std::uint_fast8_t j = 0; j < repeatTimes; ++j) {
-			out.addTo(blockIdx.x, threadIdx.x + j * blockDim.x, binStructure.getZeroDelay(blockIdx.x, j) * binStructure.get(blockIdx.x, j, threadIdx.x)); //given that each CUDA block has k threads, where k = groupSize()-1
-			binStructure.shift(blockIdx.x, j);
+	//copy accumulatorsPos (groupsNum <= groupSize)
+	if (relativeID < binStructure.groupsPerBlock()) {
+		accumulatorsPos[relativeID] = binStructure.getAccumulatorRelativePos(absoluteY, threadIdx.x);
+	}
+
+	//copy zeroDelays
+	if (relativeID < binStructure.groupsPerBlock()) {
+		zeroDelays[relativeID] = binStructure.getZeroDelay(absoluteY, threadIdx.x);
+	}
+
+	//copy info
+	if (relativeID < 7) {
+		info[relativeID] = binStructure.getInfo(relativeID);
+	}
+
+
+
+	//we only have e.g. 31 values per group + 1 accumulator. This means that in the output there will be "holes" at positions multiple of e.g. 32
+	if(threadIdx.x != blockDim.x){
+		Contained instantsNum = packet.instantsNum();
+		//cycle over all of the new data, where i is the instant in time processed
+		for (int i = 0; i < instantsNum; ++i) {
+			instantsProcessed++;
+
+			//only one thread per sensor adds the new datum to the bin structure
+			if (threadIdx.x == 0) {
+				binStructure.insertNew(threadIdx.y, packet.get(absoluteY, i), data, zeroDelays, accumulatorsPos, info);
+			}
+
+			//calculate autocorrelation for that instant
+			//Decides how many group to calculate, based on how many instants have been already processed (i.e. 1 instant-->0; 2-->0,1; 3-->0; 4-->0,1,2; 5-->0; 6-->0,1; ...)
+			std::uint_fast32_t repeatTimes = AutocorrelationCUDA::repeatTimes(instantsProcessed, 32);
+			for (std::uint_fast8_t j = 0; j < repeatTimes; ++j) {
+
+				output[relativeID + blockDimTot * j] += binStructure.getZeroDelay(blockIdx.y, j) * binStructure.get(blockIdx.y, j, threadIdx.x);
+			
+				//only one thread per sensor makes the shift
+				if (threadIdx.x == 0) {
+					binStructure.shift(blockIdx.y, j, data, zeroDelays, accumulatorsPos, info);
+				}
+			}
 		}
 	}
 
+	//copy output to total output
+	for (int i = 0; i < binStructure.groupsNum(); ++i) {
+		out.addTo(absoluteY, threadIdx.x + blockDim.x * i, output[relativeID + blockDim.x * i]);
+	}
 }
 
