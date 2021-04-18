@@ -45,7 +45,7 @@ int gettimeofday(struct timeval* tp, struct timezone* tzp)
 #define GROUPS_DEFAULT 10
 #define INSTANTS_PER_PACKET_DEFAULT 80000
 #define REPETITIONS_DEFAULT 4
-#define GROUP_SIZE_EXP2 7
+#define GROUP_SIZE_EXP2 5
 
 
 template <typename Contained, int SizeExp2>
@@ -84,20 +84,6 @@ std::vector<std::uint_fast32_t> askParameters() {
 
 
 
-constexpr int pow(int base, int exp) {
-	if (exp == 0) {
-		return 1;
-	}
-
-	int res = base;
-	for (int i = 1; i < exp; ++i) {
-		res *= base;
-	}
-	return res;
-}
-
-
-
 int main() {
 	
 	//ask parameters to user
@@ -108,8 +94,6 @@ int main() {
 	const std::uint_fast32_t repetitions = params[3];
 
 	std::uint_fast32_t sensors = std::pow(2, sensorsExp2);
-	dim3 numberOfBlocks = sensors; //number of blocks active on the GPU
-	constexpr int threadsPerBlock = pow(2, GROUP_SIZE_EXP2);
 
 	//open file where data is stored
 	//std::unique_ptr<AutocorrelationCUDA::CudaInput<int>> dataFile = std::make_unique<AutocorrelationCUDA::InputVector<int>>("", "test1");
@@ -125,7 +109,9 @@ int main() {
 	auto out = binStructure.generateResultArray();
 
 
-
+	dim3 numberOfBlocks = sensors / binStructure.getSensorsPerBlock(); //number of blocks active on the GPU
+	dim3 threadsPerBlock {binStructure.getSensorsPerBlock(), (unsigned int) std::pow(2, GROUP_SIZE_EXP2)}; 
+	std::size_t sharedMemoryRequired = binStructure.getTotalSharedMemoryRequired();
 	
 	//timer
 	AutocorrelationCUDA::Timer timer{[](std::vector<double> data){AutocorrelationCUDA::DataFile<double>::write(data, "out_timer.txt");},
@@ -143,13 +129,13 @@ int main() {
 		//cudaDeviceSynchronize();
 		//timer.getInterval();
 		//timer.start();
-		autocorrelate <<< numberOfBlocks, threadsPerBlock-1 >>> (inputArray, binStructure, timesCalled * instantsPerPacket, out);
+		autocorrelate <<< numberOfBlocks, threadsPerBlock, sharedMemoryRequired >>> (inputArray, binStructure, timesCalled * instantsPerPacket, out);
 		cudaDeviceSynchronize();	
 		timer.getInterval();
 	}
 	
 
-	/*std::cout << timesCalled << "\n";
+	std::cout << timesCalled << "\n";
 	for (int sensor = 0; sensor < out.getSensors(); ++sensor) {
 		std::cout << "\n\n\t======= SENSOR " << sensor << " =======\n";
 
@@ -159,7 +145,7 @@ int main() {
 			float print = (float) curr / div;
 			std::cout << "\n\t" << lag+1 << " --> " << print;
 		}
-	}*/
+	}
 
 	//write output to file
 	//AutocorrelationCUDA::DataFile<std::uint_fast32_t>::write(out);

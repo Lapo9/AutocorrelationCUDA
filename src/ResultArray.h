@@ -59,6 +59,7 @@ class ResultArray final {
 	}
 
 
+
 	__device__ void addTo(std::uint_fast32_t sensor, std::uint_fast32_t lag, Contained datum) {
 		data[sensor * maxLag() + lag] += datum;
 	}

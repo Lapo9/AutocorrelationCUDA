@@ -122,12 +122,12 @@ class BinGroupsMultiSensorMemory final {
 		
 		std::cout << "\ninitializing BinGroupMultiSensor...\n";
 
-		std::uint_fast32_t sensorsPerBlock = NUMBER_OF_BANKS / ((groupSizev * sizeof(Contained)) / BYTES_PER_BANK); 
-		std::uint_fast32_t cellsPerBank = sensorsPerBlock * groupSizev;
-		std::uint_fast32_t groupsPerBlock = groups * sensorsPerBlock;
+		sensorsPerBlockv = NUMBER_OF_BANKS / ((groupSizev * sizeof(Contained)) / BYTES_PER_BANK); 
+		std::uint_fast32_t cellsPerBank = sensorsPerBlockv * groupSizev;
+		std::uint_fast32_t groupsPerBlock = groups * sensorsPerBlockv;
 		std::uint_fast32_t cellsPerBlock = cellsPerBank * groups;
 
-		std::uint_fast32_t tmp[INFO_AMOUNT] = {groupSizev, groups, sensors, cellsPerBank, cellsPerBlock, groupsPerBlock, sensorsPerBlock};
+		std::uint_fast32_t tmp[INFO_AMOUNT] = {groupSizev, groups, sensors, cellsPerBank, cellsPerBlock, groupsPerBlock, sensorsPerBlockv};
 
 		//create matrix for data on GPU and fill it with 0
 		std::cout << "\nallocating data area on GPU\n";
@@ -145,7 +145,7 @@ class BinGroupsMultiSensorMemory final {
 		cudaMemset(accumulatorsPos, 0, groups * sensors * sizeof(Contained));
 
 		//create array for info on GPU and fill it
-		std::cout << "\nalocating required info on GPU\n";
+		std::cout << "\nallocating required info on GPU\n";
 		cudaMalloc(&info, INFO_AMOUNT * sizeof(std::uint_fast32_t));
 		cudaMemcpy(info, tmp, INFO_AMOUNT * sizeof(std::uint_fast32_t), cudaMemcpyHostToDevice);
 
@@ -153,7 +153,7 @@ class BinGroupsMultiSensorMemory final {
 		std::cout << "\nallocating optimizations on GPU\n";
 		std::vector<std::uint_fast8_t> banksInfoTmp((int)sensors);
 		for (int i = 0; i < sensors; ++i) {
-			banksInfoTmp[i] = i / sensorsPerBlock;
+			banksInfoTmp[i] = i / sensorsPerBlockv;
 		}
 		cudaMalloc(&banksInfo, sensors * sizeof(uint_fast8_t));
 		cudaMemcpy(banksInfo, banksInfoTmp.data(), sensors * sizeof(std::int_fast8_t), cudaMemcpyHostToDevice);
@@ -166,6 +166,17 @@ class BinGroupsMultiSensorMemory final {
 
 	__host__ ResultArray<Contained> generateResultArray() {
 		return ResultArray<Contained>(sensors, groups * groupSizev);
+	}
+
+
+
+	__host__ std::uint_fast32_t getSensorsPerBlock() {
+		return sensorsPerBlockv;
+	}
+
+
+	__host__ std::size_t getTotalSharedMemoryRequired() {
+		return sensorsPerBlockv * groupSizev * groups * sizeof(Contained) + sensorsPerBlockv * groups * sizeof(Contained) + +sensorsPerBlockv * groups * sizeof(std::uint_fast8_t) + INFO_AMOUNT * sizeof(std::uint_fast32_t) + sensorsPerBlockv * groupSizev * groups * sizeof(Contained); //last termo is for output memory
 	}
 
 
@@ -451,6 +462,7 @@ class BinGroupsMultiSensorMemory final {
 	std::uint_fast32_t sensors;
 	std::uint_fast32_t groups;
 	std::uint_fast32_t groupSizev;
+	std::uint_fast32_t sensorsPerBlockv;
 
 
 
