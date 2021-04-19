@@ -41,10 +41,10 @@ int gettimeofday(struct timeval* tp, struct timezone* tzp)
 #include <vector>
 #include <memory>
 
-#define SENSORS_EXP2_DEFAULT 8
-#define GROUPS_DEFAULT 10
-#define INSTANTS_PER_PACKET_DEFAULT 80000
-#define REPETITIONS_DEFAULT 4
+#define SENSORS_EXP2_DEFAULT 6
+#define GROUPS_DEFAULT 5
+#define INSTANTS_PER_PACKET_DEFAULT 20
+#define REPETITIONS_DEFAULT 1
 #define GROUP_SIZE_EXP2 5
 
 
@@ -100,17 +100,17 @@ int main() {
 	
 
 	//create array where to put new data for the GPU
-	AutocorrelationCUDA::SensorsDataPacket<std::uint_fast32_t> inputArray(sensorsExp2, instantsPerPacket);
+	AutocorrelationCUDA::SensorsDataPacket<std::uint_fast8_t> inputArray(sensorsExp2, instantsPerPacket);
 
 	//array in GPU of the bin groups structure
-	AutocorrelationCUDA::BinGroupsMultiSensorMemory<std::uint_fast32_t, GROUP_SIZE_EXP2> binStructure(sensors, groups);
+	AutocorrelationCUDA::BinGroupsMultiSensorMemory<std::uint_fast8_t, GROUP_SIZE_EXP2> binStructure(sensors, groups);
 
 	//output array to store results in GPU
 	auto out = binStructure.generateResultArray();
 
 
 	dim3 numberOfBlocks = sensors / binStructure.getSensorsPerBlock(); //number of blocks active on the GPU
-	dim3 threadsPerBlock {binStructure.getSensorsPerBlock(), (unsigned int) std::pow(2, GROUP_SIZE_EXP2)}; 
+	dim3 threadsPerBlock {(unsigned int) std::pow(2, GROUP_SIZE_EXP2), binStructure.getSensorsPerBlock()};
 	std::size_t sharedMemoryRequired = binStructure.getTotalSharedMemoryRequired();
 	
 	//timer
@@ -120,7 +120,11 @@ int main() {
 									      return ((double)tp.tv_sec + (double)tp.tv_usec * 0.000001);}};
 	
 
-	std::vector<std::uint_fast32_t> dataDebug(sensors * instantsPerPacket, 14);
+	std::vector<std::uint_fast8_t> dataDebug(sensors * instantsPerPacket);
+	for (int i = 0; i < sensors * instantsPerPacket; ++i) {
+		dataDebug[i] = i % 10 +1;
+	}
+
 	std::uint_fast32_t timesCalled; //counter
 	timer.start();
 	for(timesCalled = 0; timesCalled < repetitions; ++timesCalled) {
@@ -141,9 +145,9 @@ int main() {
 
 		for (int lag = 0; lag < out.getMaxLagv(); ++lag) {
 			int curr = out.get(sensor, lag);
-			int div = (timesCalled*instantsPerPacket) - lag;
-			float print = (float) curr / div;
-			std::cout << "\n\t" << lag+1 << " --> " << print;
+			//int div = (timesCalled*instantsPerPacket) - lag;
+			//float print = (float) curr / div;
+			std::cout << "\n\t" << lag+1 << " --> " << curr;
 		}
 	}
 
@@ -164,7 +168,6 @@ __global__ void autocorrelate(AutocorrelationCUDA::SensorsDataPacket<Contained> 
 
 	std::uint_fast16_t blockDimTot = blockDim.x * blockDim.y;
 	std::uint_fast16_t absoluteY = threadIdx.y + blockIdx.x * blockDim.y;
-	std::uint_fast16_t absoluteID = threadIdx.x + absoluteY * blockDim.x;
 	std::uint_fast16_t relativeID = threadIdx.x + threadIdx.y * blockDim.x;
 
 	//put data in shared memory
@@ -177,28 +180,28 @@ __global__ void autocorrelate(AutocorrelationCUDA::SensorsDataPacket<Contained> 
 
 	//copy data
 	for (int group = 0; group < binStructure.groupsNum(); ++group) {
-		data[relativeID] = binStructure.get(absoluteY, group, threadIdx.x);
+		data[relativeID + group * binStructure.cellsPerBank()] = 0; //binStructure.get(absoluteY, group, threadIdx.x);
+		output[relativeID + group * binStructure.cellsPerBank()] = 0; //set the output to 0
 	}
+	__syncthreads();
 
-	//copy accumulatorsPos (groupsNum <= groupSize)
+	//copy accumulatorsPos and zeroDelays (groupsNum <= groupSize)
 	if (relativeID < binStructure.groupsPerBlock()) {
-		accumulatorsPos[relativeID] = binStructure.getAccumulatorRelativePos(absoluteY, threadIdx.x);
+		accumulatorsPos[relativeID] = 0;//binStructure.getAccumulatorRelativePos(absoluteY, threadIdx.x);
+		zeroDelays[relativeID] = 0;//binStructure.getZeroDelay(absoluteY, threadIdx.x);
 	}
-
-	//copy zeroDelays
-	if (relativeID < binStructure.groupsPerBlock()) {
-		zeroDelays[relativeID] = binStructure.getZeroDelay(absoluteY, threadIdx.x);
-	}
+	__syncthreads();
 
 	//copy info
 	if (relativeID < 7) {
 		info[relativeID] = binStructure.getInfo(relativeID);
 	}
+	__syncthreads();
 
 
 
 	//we only have e.g. 31 values per group + 1 accumulator. This means that in the output there will be "holes" at positions multiple of e.g. 32
-	if(threadIdx.x != blockDim.x){
+	if(threadIdx.x != blockDim.x-1){
 		Contained instantsNum = packet.instantsNum();
 		//cycle over all of the new data, where i is the instant in time processed
 		for (int i = 0; i < instantsNum; ++i) {
@@ -208,21 +211,26 @@ __global__ void autocorrelate(AutocorrelationCUDA::SensorsDataPacket<Contained> 
 			if (threadIdx.x == 0) {
 				binStructure.insertNew(threadIdx.y, packet.get(absoluteY, i), data, zeroDelays, accumulatorsPos, info);
 			}
-
+			__syncthreads();
+			
 			//calculate autocorrelation for that instant
 			//Decides how many group to calculate, based on how many instants have been already processed (i.e. 1 instant-->0; 2-->0,1; 3-->0; 4-->0,1,2; 5-->0; 6-->0,1; ...)
 			std::uint_fast32_t repeatTimes = AutocorrelationCUDA::repeatTimes(instantsProcessed, 32);
 			for (std::uint_fast8_t j = 0; j < repeatTimes; ++j) {
 
-				output[relativeID + blockDimTot * j] += binStructure.getZeroDelay(blockIdx.y, j) * binStructure.get(blockIdx.y, j, threadIdx.x);
-			
+				output[relativeID + blockDimTot * j] += binStructure.getZeroDelay(threadIdx.y, j, zeroDelays, info) * binStructure.get(threadIdx.y, j, threadIdx.x, data, accumulatorsPos, info);
+				__syncthreads();
+
 				//only one thread per sensor makes the shift
 				if (threadIdx.x == 0) {
-					binStructure.shift(blockIdx.y, j, data, zeroDelays, accumulatorsPos, info);
+					binStructure.shift(threadIdx.y, j, data, zeroDelays, accumulatorsPos, info);
 				}
+				__syncthreads();
 			}
 		}
 	}
+
+	//TODO copy shared binStructure to global
 
 	//copy output to total output
 	for (int i = 0; i < binStructure.groupsNum(); ++i) {

@@ -118,7 +118,7 @@ class BinGroupsMultiSensorMemory final {
 
 	public:
 
-	__host__ BinGroupsMultiSensorMemory(Contained sensors, Contained groups) : groupSizev{(std::uint_fast32_t)std::pow(2, SizeExp2)}, sensors{sensors}, groups{groups} {
+	__host__ BinGroupsMultiSensorMemory(std::uint_fast32_t sensors, std::uint_fast32_t groups) : groupSizev{(std::uint_fast32_t)std::pow(2, SizeExp2)}, sensors{sensors}, groups{groups} {
 		
 		std::cout << "\ninitializing BinGroupMultiSensor...\n";
 
@@ -189,8 +189,8 @@ class BinGroupsMultiSensorMemory final {
 	 * @return The i-th value of the binGroup-th group of the sensor-th sensor
 	 * @pre \p sensor < sensorsNum(), \p binGroup < groupsNum(), \p i < groupSize() - 1
 	*/
-	__device__ Contained get(std::uint_fast32_t sensor, std::uint_fast32_t binGroup, std::uint_fast32_t i, Contained* accsPos, Contained* data, std::uint_fast8_t* accumulatorsPos, std::uint_fast32_t* info) {
-		std::uint_fast8_t accumulatorPos = getAccumulatorRelativePos(sensor, binGroup, accsPos, accumulatorsPos, info);
+	__device__ Contained get(std::uint_fast32_t sensor, std::uint_fast32_t binGroup, std::uint_fast32_t i, Contained* data, std::uint_fast8_t* accumulatorsPos, std::uint_fast32_t* info) {
+		std::uint_fast8_t accumulatorPos = getAccumulatorRelativePos(sensor, binGroup, accumulatorsPos, info);
 		std::uint_fast32_t startOfGroup = getStartOfGroup(sensor, binGroup, info);
 		SizeExpModuleMathUnsignedInt pos;
 		pos.bitfield = accumulatorPos + 1 + i;
@@ -270,6 +270,17 @@ class BinGroupsMultiSensorMemory final {
 
 	__device__ std::uint_fast32_t getAccumulatorRelativePos(std::uint_fast32_t sensor, std::uint_fast32_t binGroup) {
 		return accumulatorsPos[groupsPerBlock() * banksInfo[sensor] + binGroup * sensorsPerBlock() + (sensor - sensorsPerBlock() * banksInfo[sensor])];
+	}
+
+
+
+
+	__device__ void setAccumulatorRelativePos(std::uint_fast32_t sensor, std::uint_fast32_t binGroup, std::uint_fast8_t newPos, std::uint_fast8_t* accumulatorsPos, std::uint_fast32_t* info) {
+		accumulatorsPos[sensor + binGroup * sensorsPerBlock(info)] = newPos;
+	}
+
+	__device__ void setAccumulatorRelativePos(std::uint_fast32_t sensor, std::uint_fast32_t binGroup, std::uint_fast8_t newPos) {
+		accumulatorsPos[groupsPerBlock() * banksInfo[sensor] + binGroup * sensorsPerBlock() + (sensor - sensorsPerBlock() * banksInfo[sensor])] = newPos;
 	}
 
 
@@ -367,14 +378,14 @@ class BinGroupsMultiSensorMemory final {
 		std::uint_fast32_t accumulatorPos = getAccumulatorRelativePos(sensor, binGroup, accumulatorsPos, info);
 		SizeExpModuleMathUnsignedInt newPos;
 		newPos.bitfield = accumulatorPos - 1; //does it really work?
-		accumulatorsPos[accumulatorPos] = newPos.bitfield;
+		setAccumulatorRelativePos(sensor, binGroup, newPos.bitfield, accumulatorsPos, info);
 	}
 
 	__device__ void decrementAccumulatorPos(std::uint_fast32_t sensor, std::uint_fast32_t binGroup) {
 		std::uint_fast32_t accumulatorPos = getAccumulatorRelativePos(sensor, binGroup);
 		SizeExpModuleMathUnsignedInt newPos;
 		newPos.bitfield = accumulatorsPos - 1; //does it really work?
-		accumulatorsPos[accumulatorPos] = newPos.bitfield;
+		setAccumulatorRelativePos(sensor, binGroup, newPos.bitfield);
 	}
 
 
