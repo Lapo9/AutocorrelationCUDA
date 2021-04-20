@@ -7,105 +7,81 @@
 #include <memory>
 #include <vector>
 #include <iostream>
+#include "BinGroupsMultiSensorMemory.h"
+
+
+namespace AutocorrelationCUDA {
+
+#define MAX_LAG (GROUPS_PER_SENSOR * GROUP_SIZE)
 
 
 
 
 /*
 
-			+-------+-------+
-			|	max	|sens-	|
-			|	lag	|	ors	|
-			+-------+-------+
-
-			+-------+-------+-------+-------+-------+----------
-sensor 0	|	lag	|	lag	|	lag	|	lag	|	lag	|	lag	
-	-->		|	1	|	2	|	3	|	4	|	5	|	...	
-			+-------+-------+-------+-------+-------+----------
-sensor 1	|	lag	|	lag	|	lag	|	lag	|	lag	|	lag
-	-->		|	1	|	2	|	3	|	4	|	5	|	...
-			+-------+-------+-------+-------+-------+----------
-sensor 2	|	lag	|	lag	|	lag	|	lag	|	lag	|	lag
-	-->		|	1	|	2	|	3	|	4	|	5	|	...
-			+-------+-------+-------+-------+-------+----------
-sensor 3	|	lag	|	lag	|	lag	|	lag	|	lag	|	lag
-	-->		|	1	|	2	|	3	|	4	|	5	|	...
-			+-------+-------+-------+-------+-------+----------
-	...		|	...	|	...	|	...	|	...	|	...	|	...	
-	-->		|		|		|		|		|		|		
+		 sens.0	 sens.1	 sens.2	 sens.3	 sens.4	...
+		+-------+-------+-------+-------+-------+----------
+		|	lag	|	lag	|	lag	|	lag	|	lag	|	lag	
+		|	1	|	1	|	1	|	1	|	1	|	...	
+		+-------+-------+-------+-------+-------+----------
+		|	lag	|	lag	|	lag	|	lag	|	lag	|	lag
+		|	2	|	2	|	2	|	2	|	2	|	...
+		+-------+-------+-------+-------+-------+----------
+		|	lag	|	lag	|	lag	|	lag	|	lag	|	lag
+		|	3	|	3	|	3	|	3	|	3	|	...
+		+-------+-------+-------+-------+-------+----------
+		|	lag	|	lag	|	lag	|	lag	|	lag	|	lag
+		|	4	|	4	|	4	|	4	|	4	|	...
+		+-------+-------+-------+-------+-------+----------
+		|	...	|	...	|	...	|	...	|	...	|	...	
+		|		|		|		|		|		|		
 
 */
 
 
-namespace AutocorrelationCUDA {
-
-template <typename Contained>
 class ResultArray final {
 	
 	public:
 
-	__host__ ResultArray(std::uint_fast32_t sensors, std::uint_fast32_t maxLag) : sensorsv{sensors}, maxLagv{maxLag} {
+	__host__ ResultArray() {
 
 		std::cout << "\ninitializing ResultArray...\n";
 
-		 cudaMalloc(&data, sensors * maxLag * sizeof(Contained));
-		 cudaMemset(data, 0, (1 + sensors * maxLag) * sizeof(Contained));
-
-		 cudaMalloc(&info, 2 * sizeof(std::uint_fast32_t));
-		 std::uint_fast32_t tmp[2] = {maxLag, sensors};
-		 cudaMemcpy(info, tmp, 2 * sizeof(std::uint_fast32_t), cudaMemcpyHostToDevice);
+		 cudaMalloc(&data, SENSORS * MAX_LAG * sizeof(uint32));
+		 cudaMemset(data, 0, SENSORS * MAX_LAG * sizeof(uint32));
 
 		 std::cout << "\nResultArray done!\n";
 	}
 
 
 
-	__device__ void addTo(std::uint_fast32_t sensor, std::uint_fast32_t lag, Contained datum) {
-		data[sensor * maxLag() + lag] += datum;
+	__device__ static void addTo(uint16 sensor, uint8 lag, uint32 datum, uint32* arr) {
+		arr[sensor + lag * MAX_LAG] += datum;
 	}
 
 
-	__host__ Contained get(std::uint_fast32_t sensor, std::uint_fast32_t lag) {
-		return toVector()[sensor * maxLagv + lag];
+	__device__ void addTo(uint16 sensor, uint8 lag, uint32 datum) {
+		data[sensor + lag * MAX_LAG] += datum;
 	}
 
 
-	__host__ std::vector<Contained> toVector() {		
-		std::vector<Contained> result(maxLagv * sensorsv);
-		cudaMemcpy(result.data(), data, maxLagv * sensorsv * sizeof(Contained), cudaMemcpyDeviceToHost);
+	__host__ uint32 get(uint16 sensor, uint8 lag) {
+		return toVector()[sensor * MAX_LAG + lag];
+	}
+
+
+	__host__ std::vector<uint32> toVector() {		
+		std::vector<uint32> result(MAX_LAG * SENSORS);
+		cudaMemcpy(result.data(), data, MAX_LAG * SENSORS * sizeof(uint32), cudaMemcpyDeviceToHost);
 		return result;
 	}
 
-
-	__host__ std::uint_fast32_t getMaxLagv() {
-		return maxLagv;
-	}
-
-
-	__host__ std::uint_fast32_t getSensors() {
-		return sensorsv;
-	}
 
 
 
 	private:
 
-	__device__ std::uint_fast32_t maxLag() {
-		return info[0];
-	}
-
-
-	__device__ std::uint_fast32_t sensors() {
-		return info[1];
-	}
-
-
-
-	Contained* data;
-	std::uint_fast32_t* info;
-
-	std::uint_fast32_t sensorsv;
-	std::uint_fast32_t maxLagv;
+	uint32* data;
 
 };
 }

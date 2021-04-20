@@ -10,57 +10,41 @@
 
 namespace AutocorrelationCUDA {
 
-template <typename Contained>
+#define INSTANTS_PER_PACKET 100
+
+
 class SensorsDataPacket final {
 	
 	public:
 
-	__host__ SensorsDataPacket(unsigned int sensorsExp2, unsigned int instants) : sensors{(std::uint_fast32_t)std::pow(2, sensorsExp2)}, instants{instants}{
+	__host__ SensorsDataPacket() {
 		
 		std::cout << "\ninitializing SensorsDataPacket...\n";
 
-		cudaMalloc(&data, sensors * instants * sizeof(Contained));
-		cudaMemset(data, 0, sensors * instants);
-		
-		std::uint_fast32_t tmp[2] = {sensors, instants};
-		cudaMalloc(&info, 2 * sizeof(std::uint_fast32_t));
-		cudaMemcpy(info, tmp, 2 * sizeof(std::uint_fast32_t), cudaMemcpyHostToDevice);
+		cudaMalloc(&data, SENSORS * INSTANTS_PER_PACKET * sizeof(uint8));
+		cudaMemset(data, 0, SENSORS * INSTANTS_PER_PACKET);
 
 		std::cout << "\nSensorsDataPacket done!\n";
 	}
 
 
 
-	__device__ Contained get(std::uint_fast32_t sensor, std::uint_fast32_t instant) {
-		return data[instant * sensorsNum() + sensor];
+	__device__ uint8 get(uint16 sensor, uint16 instant) {
+		return data[instant * SENSORS + sensor];
 	}
 
 
 
-	__host__ void setNewDataPacket(const std::vector<Contained>& newData) {
-		cudaMemcpy(data, newData.data(), sensors * instants * sizeof(Contained), cudaMemcpyHostToDevice);
+	__host__ void setNewDataPacket(const std::vector<uint8>& newData) {
+		cudaMemcpy(data, newData.data(), SENSORS * INSTANTS_PER_PACKET * sizeof(uint8), cudaMemcpyHostToDevice);
 	}
 
 
-
-	__device__ std::uint_fast32_t sensorsNum() {
-		return info[0];
-	}
-
-
-	__device__ std::uint_fast32_t instantsNum() {
-		return info[1];
-	}
 
 
 	private:
 
-	Contained* data;
-	std::uint_fast32_t* info;
-
-	std::uint_fast32_t sensors;
-	std::uint_fast32_t instants;
-
+	uint8* data;
 
 };
 }

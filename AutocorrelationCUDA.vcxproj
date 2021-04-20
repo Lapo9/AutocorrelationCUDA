@@ -22,6 +22,7 @@
     <ClInclude Include="src\BinGroupsMultiSensorMemory.h" />
     <ClInclude Include="src\CudaInput.h" />
     <ClInclude Include="src\DataFile.h" />
+    <ClInclude Include="src\Definitions.h" />
     <ClInclude Include="src\Feeder.h" />
     <ClInclude Include="src\InputVector.h" />
     <ClInclude Include="src\ResultArray.h" />
