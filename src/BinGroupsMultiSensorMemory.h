@@ -2,27 +2,18 @@
 #define AUTOCORRELATIONCUDA_BINGROUPSMULTISENSORMEMORY
 
 
-
-
-
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <memory>
 #include <cmath>
 #include <iostream>
 
+#include "Definitions.h"
+#include "ResultArray.h"
+
 
 
 namespace AutocorrelationCUDA {
-
-#define SENSORS 1024
-#define SENSORS_PER_BLOCK 8
-#define GROUPS_PER_SENSOR 5
-#define GROUP_SIZE 32
-
-#define ACC_POS_START (SENSORS_PER_BLOCK * GROUPS_PER_SENSOR * GROUP_SIZE)
-#define ZERO_DELAY_START (ACC_POS_START + SENSORS_PER_BLOCK * GROUPS_PER_SENSOR)
-#define SHARED_MEMORY_REQUIRED (SENSORS_PER_BLOCK * GROUPS_PER_SENSOR * GROUP_SIZE * 8 + SENSORS_PER_BLOCK * GROUPS_PER_SENSOR * 8 + SENSORS_PER_BLOCK * GROUPS_PER_SENSOR * 8 + SENSORS_PER_BLOCK * GROUPS_PER_SENSOR * GROUP_SIZE * 8)
 
 
 /*
@@ -101,12 +92,6 @@ namespace AutocorrelationCUDA {
 */
 
 
-
-using uint8 = std::uint_fast8_t;
-using uint16 = std::uint_fast16_t;
-using uint32 = std::uint_fast32_t;
-
-
 class BinGroupsMultiSensorMemory final {
 
 	public:
@@ -137,7 +122,7 @@ class BinGroupsMultiSensorMemory final {
 
 
 	__host__ ResultArray generateResultArray() {
-		return ResultArray(SENSORS, GROUPS_PER_SENSOR * GROUP_SIZE);
+		return ResultArray();
 	}
 
 

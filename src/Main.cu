@@ -31,26 +31,28 @@ int gettimeofday(struct timeval* tp, struct timezone* tzp)
 
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
-#include "ResultArray.h"
-#include "DataFile.h"
-#include "CudaInput.h"
-#include "InputVector.h"
-#include "BinGroupsMultiSensorMemory.h"
-#include "SensorsDataPacket.h"
 #include <iostream>
 #include <vector>
 #include <memory>
 
-namespace AutocorrelationCUDA {
+#include "Definitions.h"
+#include "ResultArray.h"
+#include "BinGroupsMultiSensorMemory.h"
+#include "SensorsDataPacket.h"
+
+#include "DataFile.h"
+#include "Timer.h"
 
 
-#define REPETITIONS 20
+
+using namespace AutocorrelationCUDA;
+
 
 
 __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemory binStructure, uint32 instantsProcessed, ResultArray out);
 
 
-
+namespace AutocorrelationCUDA {
 	template<typename Integer>
 	__device__ static Integer repeatTimes(Integer x, std::int8_t bits) {
 		Integer pow2 = 1;
@@ -62,7 +64,7 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 		}
 		return 0;
 	}
-
+}
 
 
 int main() {
@@ -113,10 +115,10 @@ int main() {
 	
 
 	std::cout << timesCalled << "\n";
-	for (int sensor = 0; sensor < out.getSensors(); ++sensor) {
+	for (int sensor = 0; sensor < SENSORS; ++sensor) {
 		std::cout << "\n\n\t======= SENSOR " << sensor << " =======\n";
 
-		for (int lag = 0; lag < out.getMaxLagv(); ++lag) {
+		for (int lag = 0; lag < MAX_LAG; ++lag) {
 			int curr = out.get(sensor, lag);
 			//int div = (timesCalled*instantsPerPacket) - lag;
 			//float print = (float) curr / div;
@@ -199,9 +201,7 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 	//TODO copy shared binStructure to global
 
 	//copy output to total output
-	for (int i = 0; i < binStructure.groupsNum(); ++i) {
+	for (int i = 0; i < GROUPS_PER_SENSOR; ++i) {
 		out.addTo(absoluteY, threadIdx.x + blockDim.x * i, output[relativeID + blockDim.x * i]);
 	}
-}
-
 }

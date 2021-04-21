@@ -7,10 +7,10 @@
 #include <cmath>
 #include <iostream>
 
+#include "Definitions.h"
+
 
 namespace AutocorrelationCUDA {
-
-#define INSTANTS_PER_PACKET 100
 
 
 class SensorsDataPacket final {

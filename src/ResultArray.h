@@ -7,14 +7,11 @@
 #include <memory>
 #include <vector>
 #include <iostream>
-#include "BinGroupsMultiSensorMemory.h"
+
+#include "Definitions.h"
 
 
 namespace AutocorrelationCUDA {
-
-#define MAX_LAG (GROUPS_PER_SENSOR * GROUP_SIZE)
-
-
 
 
 /*
