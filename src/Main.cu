@@ -155,8 +155,8 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 
 	//copy data
 	for (int group = 0; group < GROUPS_PER_SENSOR; ++group) {
-		data[relativeID + group * SENSORS_PER_BLOCK * GROUP_SIZE] = binStructure.get(absoluteY, group, threadIdx.x);
-		output[relativeID + group * SENSORS_PER_BLOCK * GROUP_SIZE] = 0; //set the output to 0
+			data[relativeID + group * SENSORS_PER_BLOCK * GROUP_SIZE] = binStructure.get(absoluteY, group, threadIdx.x);
+			output[relativeID + group * SENSORS_PER_BLOCK * GROUP_SIZE] = 0; //set the output to 0
 	}
 
 	//copy accumulatorsPos and zeroDelays (groupsNum <= groupSize)

@@ -141,12 +141,12 @@ class BinGroupsMultiSensorMemory final {
 
 
 	__device__ static uint8& get(uint16 sensor, uint8 group, uint8 pos, uint8* arr) {
-		return arr[(getAccumulatorRelativePos(sensor, group, arr)+1+pos) & (GROUP_SIZE-1) + sensor + group * SENSORS_PER_BLOCK * GROUP_SIZE];
+		return arr[(getAccumulatorRelativePos(sensor, group, arr)+1+pos) & (GROUP_SIZE-1) + sensor * GROUP_SIZE + group * SENSORS_PER_BLOCK * GROUP_SIZE];
 	}
 
 
 	__device__ static uint8& getAccumulator(uint16 sensor, uint8 group, uint8* arr) {
-		return arr[getAccumulatorRelativePos(sensor, group, arr) + sensor + group * SENSORS_PER_BLOCK * GROUP_SIZE];
+		return arr[getAccumulatorRelativePos(sensor, group, arr) + sensor * GROUP_SIZE + group * SENSORS_PER_BLOCK * GROUP_SIZE];
 	}
 
 
@@ -163,6 +163,7 @@ class BinGroupsMultiSensorMemory final {
 			getZeroDelay(sensor, group+1, arr) += getZeroDelay(sensor, group, arr);
 		}
 
+		getAccumulator(sensor, group, arr) = 0;
 		getZeroDelay(sensor, group, arr) = 0;
 	}
 
@@ -180,7 +181,7 @@ class BinGroupsMultiSensorMemory final {
 	}
 
 
-	__device__ uint8& get(uint16 sensor, uint8 group, uint8 pos) {
+	__device__ uint8 get(uint16 sensor, uint8 group, uint8 pos) {
 		return data[(getAccumulatorRelativePos(sensor, group) + 1 + pos) & (GROUP_SIZE - 1) + sensor + group * SENSORS * GROUP_SIZE];
 	}
 
