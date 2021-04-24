@@ -208,6 +208,6 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 
 	//copy output to total output
 	for (int i = 0; i < GROUPS_PER_SENSOR; ++i) {
-		out.addTo(absoluteY, threadIdx.x + blockDim.x * i, output[relativeID + blockDim.x * i]);
+		out.addTo(absoluteY, threadIdx.x, i, output[relativeID + blockDim.x * i]);
 	}
 }

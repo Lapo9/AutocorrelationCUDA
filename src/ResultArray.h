@@ -57,13 +57,15 @@ class ResultArray final {
 	}
 
 
-	__device__ void addTo(uint16 sensor, uint8 lag, uint32 datum) {
-		data[lag + sensor * SENSORS] += datum;
+	__device__ void addTo(uint16 sensor, uint8 relativeLag, uint8 binGroup, uint32 datum) {
+		data[relativeLag + sensor * GROUP_SIZE + binGroup * SENSORS * GROUP_SIZE] += datum;
 	}
 
 
 	__host__ uint32 get(uint16 sensor, uint8 lag) {
-		return toVector()[lag + sensor * SENSORS];
+		int relativeLag = lag % 32;
+		int binGroup = lag / 32;
+		return toVector()[relativeLag + sensor * GROUP_SIZE + binGroup * SENSORS * GROUP_SIZE];
 	}
 
 

@@ -117,8 +117,8 @@ class BinGroupsMultiSensorMemory final {
 
 		//create matrix for data on GPU and fill it with 0
 		std::cout << "\nallocating data area on GPU\n";
-		cudaMalloc(&data, GROUP_SIZE * GROUPS_PER_SENSOR * SENSORS * sizeof(uint8));
-		cudaMemset(data, 0, GROUP_SIZE * GROUPS_PER_SENSOR * SENSORS * sizeof(uint8));
+		cudaMalloc(&data, /*GROUP_SIZE * GROUPS_PER_SENSOR * SENSORS*/ 110000 * sizeof(uint8));
+		cudaMemset(data, 0, /*GROUP_SIZE * GROUPS_PER_SENSOR * SENSORS*/ 110000 * sizeof(uint8));
 
 		//create matrix for zero delay data on GPU and fill it with 0
 		std::cout << "\allocating zero delay area on GPU\n";

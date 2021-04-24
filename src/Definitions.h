@@ -4,7 +4,7 @@
 
 namespace AutocorrelationCUDA {
 
-#define SENSORS 256
+#define SENSORS 1024
 #define SENSORS_PER_BLOCK 8
 #define GROUPS_PER_SENSOR 10
 #define GROUP_SIZE 32
