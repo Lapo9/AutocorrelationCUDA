@@ -68,7 +68,6 @@ namespace AutocorrelationCUDA {
 
 
 int main() {
-
 	cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
 
 	//open file where data is stored
@@ -143,6 +142,7 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 
 	uint16 blockDimTot = blockDim.x * blockDim.y;
 	uint16 absoluteY = threadIdx.y + blockIdx.x * blockDim.y;
+	uint16 startingAbsoluteY = blockIdx.x * blockDim.y;
 	uint8 relativeID = threadIdx.x + threadIdx.y * blockDim.x; //not more than 256 threads per block (basically 8 sensors)
 
 	//put data in shared memory
@@ -154,15 +154,22 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 	uint8* output = &zeroDelays[SENSORS_PER_BLOCK * GROUP_SIZE];
 
 	//copy data
+	uint32* tmpArr1 = (uint32*)data;
+	uint32* tmpArr2 = (uint32*)output;
+	//TODO we can do less loops
 	for (int group = 0; group < GROUPS_PER_SENSOR; ++group) {
-			data[relativeID + group * SENSORS_PER_BLOCK * GROUP_SIZE] = binStructure.get(absoluteY, group, threadIdx.x);
-			output[relativeID + group * SENSORS_PER_BLOCK * GROUP_SIZE] = 0; //set the output to 0
+		if(relativeID < X32_BITS_PER_BLOCK_ROW){
+			tmpArr1[relativeID + group * X32_BITS_PER_BLOCK_ROW] = binStructure.rawGet(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_DATA);
+			tmpArr2[relativeID + group * X32_BITS_PER_BLOCK_ROW] = (uint32)0; //set the output to 0
+		}
 	}
 
-	//copy accumulatorsPos and zeroDelays (groupsNum <= groupSize)
+	//copy accumulatorsPos and zeroDelays
+	tmpArr1 = (uint32*)accumulatorsPos;
+	tmpArr2 = (uint32*)zeroDelays;
 	if (relativeID < GROUPS_PER_SENSOR * SENSORS_PER_BLOCK) {
-		accumulatorsPos[relativeID] = binStructure.getAccumulatorRelativePos(absoluteY, threadIdx.x);
-		zeroDelays[relativeID] = binStructure.getZeroDelay(absoluteY, threadIdx.x);
+		tmpArr1[relativeID] = binStructure.rawGetAccumulatorRelativePos(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_ZD_ACC);
+		tmpArr2[relativeID] = binStructure.rawGetZeroDelay(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_ZD_ACC);
 	}
 
 	__syncthreads();
@@ -176,21 +183,21 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 			instantsProcessed++;
 
 			//only one thread per sensor adds the new datum to the bin structure
-			if (threadIdx.x == 0) {
-				BinGroupsMultiSensorMemory::insertNew(threadIdx.y, packet.get(absoluteY, i), data);
+			if (relativeID < SENSORS_PER_BLOCK) {
+				BinGroupsMultiSensorMemory::insertNew(threadIdx.x, packet.get(startingAbsoluteY + threadIdx.x, i), data);
 			}
 			__syncthreads();
 			
 			//calculate autocorrelation for that instant
 			//Decides how many group to calculate, based on how many instants have been already processed (i.e. 1 instant-->0; 2-->0,1; 3-->0; 4-->0,1,2; 5-->0; 6-->0,1; ...)
-			std::uint_fast32_t repeatTimes = AutocorrelationCUDA::repeatTimes(instantsProcessed, 32);
+			uint32 repeatTimes = AutocorrelationCUDA::repeatTimes(instantsProcessed, 32);
 			for (std::uint_fast8_t j = 0; j < repeatTimes; ++j) {
 
 				output[relativeID + blockDimTot * j] += BinGroupsMultiSensorMemory::getZeroDelay(threadIdx.y, j, data) * BinGroupsMultiSensorMemory::get(threadIdx.y, j, threadIdx.x, data);
 				__syncthreads();
 
 				//only one thread per sensor makes the shift
-				if (relativeID < 8) {
+				if (relativeID < SENSORS_PER_BLOCK) {
 					BinGroupsMultiSensorMemory::shift(relativeID, j, data);
 				}
 				__syncthreads();

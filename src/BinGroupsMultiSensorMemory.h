@@ -17,7 +17,8 @@ namespace AutocorrelationCUDA {
 
 
 /*
-
+	
+	FIXME restore old layout (block layout)
 
 
 		 	+-----------+-----------+-----------+-----------+
@@ -78,8 +79,22 @@ namespace AutocorrelationCUDA {
 		+-----------+-----------+-----------+-----------+-----------++----------+-----------+-----------+-----------+-----------++----------++----------+-----------+-----------+-----------+-----------+
 		|	s.0 g.h	|	s.0 g.h	|	...		|	accum.	|	...		||	s.1 g.h	|	s.1 g.h	|	...		|	accum.	|	...		||	...		||	s.k g.h	|	s.k g.h	|	...		|	accum.	|	...		|
 		|	pos x	|	pos x+1	|			|	s.0 g.h	|			||	pos x	|	pos x+1	|			|	s.1 g.h	|			||			||	pos x	|	pos x+1	|			|	s.k g.h	|			|
+		+===========+===========+===========+===========+===========++==========+===========+===========+===========+===========++==========++==========+===========+===========+===========+===========+
+		|	s.0 g.0	|	s.0 g.0	|	...		|	accum.	|	...		||	s.1 g.0	|	s.1 g.0	|	...		|	accum.	|	...		||	...		||	s.k g.0	|	s.k g.0	|	...		|	accum.	|	...		|
+		|	pos x	|	pos x+1	|			|	s.0 g.0	|			||	pos x	|	pos x+1	|			|	s.1 g.0	|			||			||	pos x	|	pos x+1	|			|	s.k g.0	|			|
 		+-----------+-----------+-----------+-----------+-----------++----------+-----------+-----------+-----------+-----------++----------++----------+-----------+-----------+-----------+-----------+
-
+		|	s.0 g.1	|	s.0 g.1	|	...		|	accum.	|	...		||	s.1 g.0	|	s.1 g.0	|	...		|	accum.	|	...		||	...		||	s.k g.0	|	s.k g.0	|	...		|	accum.	|	...		|
+		|	pos x	|	pos x+1	|			|	s.0 g.1	|			||	pos x	|	pos x+1	|			|	s.1 g.0	|			||			||	pos x	|	pos x+1	|			|	s.k g.0	|			|
+		+-----------+-----------+-----------+-----------+-----------++----------+-----------+-----------+-----------+-----------++----------++----------+-----------+-----------+-----------+-----------+
+		|	s.0 g.2	|	s.0 g.2	|	...		|	accum.	|	...		||	s.1 g.0	|	s.1 g.0	|	...		|	accum.	|	...		||	...		||	s.k g.0	|	s.k g.0	|	...		|	accum.	|	...		|
+		|	pos x	|	pos x+1	|			|	s.0 g.2	|			||	pos x	|	pos x+1	|			|	s.1 g.0	|			||			||	pos x	|	pos x+1	|			|	s.k g.0	|			|
+		+-----------+-----------+-----------+-----------+-----------++----------+-----------+-----------+-----------+-----------++----------++----------+-----------+-----------+-----------+-----------+
+		|	...		|	...		|	...		|	...		|	...		||	...		|	...		|	...		|	...		|	...		||	...		||	...		|	...		|	...		|	...		|	...		|
+		|			|			|			|			|			||			|			|			|			|			||			||			|			|			|			|			|
+		+-----------+-----------+-----------+-----------+-----------++----------+-----------+-----------+-----------+-----------++----------++----------+-----------+-----------+-----------+-----------+
+		|	s.0 g.h	|	s.0 g.h	|	...		|	accum.	|	...		||	s.1 g.h	|	s.1 g.h	|	...		|	accum.	|	...		||	...		||	s.k g.h	|	s.k g.h	|	...		|	accum.	|	...		|
+		|	pos x	|	pos x+1	|			|	s.0 g.h	|			||	pos x	|	pos x+1	|			|	s.1 g.h	|			||			||	pos x	|	pos x+1	|			|	s.k g.h	|			|
+		+-----------+-----------+-----------+-----------+-----------++----------+-----------+-----------+-----------+-----------++----------++----------+-----------+-----------+-----------+-----------+
 
 
 
@@ -171,20 +186,33 @@ class BinGroupsMultiSensorMemory final {
 
 
 
-	__device__ uint8& getAccumulatorRelativePos(uint16 sensor, uint8 group) {
+	/*__device__ uint8& getAccumulatorRelativePos(uint16 sensor, uint8 group) {
 		return accumulatorsPos[sensor + group * SENSORS];
+	}*/
+
+	__device__ uint32 rawGetAccumulatorRelativePos(uint8 i) {
+		uint32* tmp = (uint32*)accumulatorsPos;
+		return accumulatorsPos[i];
 	}
 
 
-	__device__ uint8& getZeroDelay(uint16 sensor, uint8 group) {
+	/*__device__ uint8& getZeroDelay(uint16 sensor, uint8 group) {
 		return zeroDelays[sensor + group * SENSORS];
+	}*/
+
+	__device__ uint32 rawGetZeroDelay(uint8 i) {
+		uint32* tmp = (uint32*)zeroDelays;
+		return tmp[i];
 	}
 
-
-	__device__ uint8 get(uint16 sensor, uint8 group, uint8 pos) {
+	/*__device__ uint8& get(uint16 sensor, uint8 group, uint8 pos) {
 		return data[(getAccumulatorRelativePos(sensor, group) + 1 + pos) & (GROUP_SIZE - 1) + sensor + group * SENSORS * GROUP_SIZE];
-	}
+	}*/
 
+	__device__ uint32 rawGet(uint8 i) {
+		uint32* tmp = (uint32*)data;
+		return tmp[i];
+	}
 
 
 

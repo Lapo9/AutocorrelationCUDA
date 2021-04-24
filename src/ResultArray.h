@@ -58,12 +58,12 @@ class ResultArray final {
 
 
 	__device__ void addTo(uint16 sensor, uint8 lag, uint32 datum) {
-		data[sensor + lag * SENSORS] += datum;
+		data[lag + sensor * SENSORS] += datum;
 	}
 
 
 	__host__ uint32 get(uint16 sensor, uint8 lag) {
-		return toVector()[sensor + lag * SENSORS];
+		return toVector()[lag + sensor * SENSORS];
 	}
 
 
