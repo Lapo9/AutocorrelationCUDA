@@ -140,7 +140,6 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 	
 	//precondition: blockDim.x = groupSize, blockDim.y = sensorsPerBlock
 
-	uint16 blockDimTot = blockDim.x * blockDim.y;
 	uint16 absoluteY = threadIdx.y + blockIdx.x * blockDim.y;
 	uint16 startingAbsoluteY = blockIdx.x * blockDim.y;
 	uint8 relativeID = threadIdx.x + threadIdx.y * blockDim.x; //not more than 256 threads per block (basically 8 sensors)
@@ -150,8 +149,8 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 	__shared__ uint8 sharedMemory[SHARED_MEMORY_REQUIRED];
 	uint8* data = sharedMemory;
 	uint8* accumulatorsPos = &data[SENSORS_PER_BLOCK * GROUPS_PER_SENSOR * GROUP_SIZE];
-	uint8* zeroDelays = &accumulatorsPos[SENSORS_PER_BLOCK * GROUP_SIZE];
-	uint8* output = &zeroDelays[SENSORS_PER_BLOCK * GROUP_SIZE];
+	uint8* zeroDelays = &accumulatorsPos[SENSORS_PER_BLOCK * GROUPS_PER_SENSOR];
+	uint8* output = &zeroDelays[SENSORS_PER_BLOCK * GROUPS_PER_SENSOR];
 
 	//copy data
 	uint32* tmpArr1 = (uint32*)data;
@@ -184,7 +183,7 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 
 			//only one thread per sensor adds the new datum to the bin structure
 			if (relativeID < SENSORS_PER_BLOCK) {
-				BinGroupsMultiSensorMemory::insertNew(threadIdx.x, packet.get(startingAbsoluteY + threadIdx.x, i), data);
+				BinGroupsMultiSensorMemory::insertNew(relativeID, packet.get(startingAbsoluteY + relativeID, i), data);
 			}
 			__syncthreads();
 			
@@ -193,7 +192,7 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 			uint32 repeatTimes = AutocorrelationCUDA::repeatTimes(instantsProcessed, 32);
 			for (std::uint_fast8_t j = 0; j < repeatTimes; ++j) {
 
-				output[relativeID + blockDimTot * j] += BinGroupsMultiSensorMemory::getZeroDelay(threadIdx.y, j, data) * BinGroupsMultiSensorMemory::get(threadIdx.y, j, threadIdx.x, data);
+				output[relativeID + GROUP_SIZE * SENSORS_PER_BLOCK * j] += BinGroupsMultiSensorMemory::getZeroDelay(threadIdx.y, j, data) * BinGroupsMultiSensorMemory::get(threadIdx.y, j, threadIdx.x, data);
 				__syncthreads();
 
 				//only one thread per sensor makes the shift

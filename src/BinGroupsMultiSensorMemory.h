@@ -156,7 +156,7 @@ class BinGroupsMultiSensorMemory final {
 
 
 	__device__ static uint8& get(uint16 sensor, uint8 group, uint8 pos, uint8* arr) {
-		return arr[(getAccumulatorRelativePos(sensor, group, arr)+1+pos) & (GROUP_SIZE-1) + sensor * GROUP_SIZE + group * SENSORS_PER_BLOCK * GROUP_SIZE];
+		return arr[((getAccumulatorRelativePos(sensor, group, arr)+1+pos) & (GROUP_SIZE-1)) + sensor * GROUP_SIZE + group * SENSORS_PER_BLOCK * GROUP_SIZE];
 	}
 
 
@@ -167,6 +167,7 @@ class BinGroupsMultiSensorMemory final {
 
 	__device__ static void insertNew(uint16 sensor, uint8 datum, uint8* arr) {
 		get(sensor, 0, 0, arr) = datum;
+		getZeroDelay(sensor, 0, arr) = datum;
 	}
 
 
