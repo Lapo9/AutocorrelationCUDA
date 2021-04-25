@@ -166,7 +166,7 @@ class BinGroupsMultiSensorMemory final {
 
 
 	__device__ static void insertNew(uint16 sensor, uint8 datum, uint8* arr) {
-		get(sensor, 0, 0, arr) = datum;
+		getAccumulator(sensor, 0, arr) = datum;
 		getZeroDelay(sensor, 0, arr) = datum;
 	}
 

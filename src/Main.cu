@@ -95,8 +95,10 @@ int main() {
 	
 
 	std::vector<std::uint_fast8_t> dataDebug(SENSORS * INSTANTS_PER_PACKET);
-	for (int i = 0; i < SENSORS * INSTANTS_PER_PACKET; ++i) {
-		dataDebug[i] = i % 10 +1;
+	for (int i = 0; i < INSTANTS_PER_PACKET; ++i) {
+		for (int j = 0; j < SENSORS; ++j) {
+			dataDebug[i*SENSORS + j] = i % 10 +1;
+		}
 	}
 
 	std::uint_fast32_t timesCalled; //counter
@@ -146,26 +148,34 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 
 	//put data in shared memory
 	//TODO probably it is better to load only the most used groups (0, 1, 2, 3), to increase occupancy
-	__shared__ uint8 sharedMemory[SHARED_MEMORY_REQUIRED];
-	uint8* data = sharedMemory;
+	__shared__ uint8 binStruct[BYTES_REQUIRED_FOR_BIN_STRUCTURE];
+	uint8* data = binStruct;
 	uint8* accumulatorsPos = &data[SENSORS_PER_BLOCK * GROUPS_PER_SENSOR * GROUP_SIZE];
 	uint8* zeroDelays = &accumulatorsPos[SENSORS_PER_BLOCK * GROUPS_PER_SENSOR];
-	uint8* output = &zeroDelays[SENSORS_PER_BLOCK * GROUPS_PER_SENSOR];
+	
+	__shared__ uint16 output[BYTES_REQUIRED_FOR_OUTPUT];
 
 	//copy data
 	uint32* tmpArr1 = (uint32*)data;
 	uint32* tmpArr2 = (uint32*)output;
 	for (int i = 0; i < COPY_REPETITIONS; ++i) {
 		if(relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE < X32_BITS_PER_BLOCK_DATA){
-			tmpArr1[relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE] = (uint32)1;// binStructure.rawGet(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_DATA + i * SENSORS_PER_BLOCK * GROUP_SIZE);
+			tmpArr1[relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE] = binStructure.rawGet(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_DATA + i * SENSORS_PER_BLOCK * GROUP_SIZE);
+		}
+	}
+
+	//set output to 0
+	for (int i = 0; i < COPY_REPETITIONS * 2; ++i) {
+		if (relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE < X32_BITS_PER_BLOCK_DATA * 2) {
 			tmpArr2[relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE] = (uint32)0; //set the output to 0
 		}
 	}
 
+
 	//copy accumulatorsPos and zeroDelays
 	tmpArr1 = (uint32*)accumulatorsPos;
 	tmpArr2 = (uint32*)zeroDelays;
-	if (relativeID < GROUPS_PER_SENSOR * SENSORS_PER_BLOCK) {
+	if (relativeID < GROUPS_PER_SENSOR * SENSORS_PER_BLOCK / 4) {
 		tmpArr1[relativeID] = binStructure.rawGetAccumulatorRelativePos(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_ZD_ACC);
 		tmpArr2[relativeID] = binStructure.rawGetZeroDelay(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_ZD_ACC);
 	}
@@ -189,7 +199,7 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 			//calculate autocorrelation for that instant
 			//Decides how many group to calculate, based on how many instants have been already processed (i.e. 1 instant-->0; 2-->0,1; 3-->0; 4-->0,1,2; 5-->0; 6-->0,1; ...)
 			uint32 repeatTimes = AutocorrelationCUDA::repeatTimes(instantsProcessed, 32);
-			for (std::uint_fast8_t j = 0; j < repeatTimes; ++j) {
+			for (uint8 j = 0; j < repeatTimes; ++j) {
 
 				output[relativeID + GROUP_SIZE * SENSORS_PER_BLOCK * j] += BinGroupsMultiSensorMemory::getZeroDelay(threadIdx.y, j, data) * BinGroupsMultiSensorMemory::get(threadIdx.y, j, threadIdx.x, data);
 				__syncthreads();
@@ -203,7 +213,22 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 		}
 	}
 
-	//TODO copy shared binStructure to global
+
+	//copy data out
+	tmpArr1 = (uint32*)data;
+	for (int i = 0; i < COPY_REPETITIONS; ++i) {
+		if (relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE < X32_BITS_PER_BLOCK_DATA) {
+			binStructure.rawGet(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_DATA + i * SENSORS_PER_BLOCK * GROUP_SIZE) = tmpArr1[relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE];
+		}
+	}
+
+	//copy accumulatorsPos and zeroDelays out
+	tmpArr1 = (uint32*)accumulatorsPos;
+	tmpArr2 = (uint32*)zeroDelays;
+	if (relativeID < GROUPS_PER_SENSOR * SENSORS_PER_BLOCK / 4) {
+		binStructure.rawGetAccumulatorRelativePos(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_ZD_ACC) = tmpArr1[relativeID];
+		binStructure.rawGetZeroDelay(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_ZD_ACC) = tmpArr1[relativeID];
+	}
 
 	//copy output to total output
 	for (int i = 0; i < GROUPS_PER_SENSOR; ++i) {
