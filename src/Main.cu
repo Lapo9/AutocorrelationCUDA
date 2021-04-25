@@ -69,6 +69,7 @@ namespace AutocorrelationCUDA {
 
 int main() {
 	cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
+	cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
 
 	//open file where data is stored
 	//std::unique_ptr<AutocorrelationCUDA::CudaInput<int>> dataFile = std::make_unique<AutocorrelationCUDA::InputVector<int>>("", "test1");
