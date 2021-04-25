@@ -191,9 +191,9 @@ class BinGroupsMultiSensorMemory final {
 		return accumulatorsPos[sensor + group * SENSORS];
 	}*/
 
-	__device__ uint32 rawGetAccumulatorRelativePos(uint8 i) {
+	__device__ uint32& rawGetAccumulatorRelativePos(uint8 i) {
 		uint32* tmp = (uint32*)accumulatorsPos;
-		return accumulatorsPos[i];
+		return tmp[i];
 	}
 
 
@@ -201,7 +201,7 @@ class BinGroupsMultiSensorMemory final {
 		return zeroDelays[sensor + group * SENSORS];
 	}*/
 
-	__device__ uint32 rawGetZeroDelay(uint8 i) {
+	__device__ uint32& rawGetZeroDelay(uint8 i) {
 		uint32* tmp = (uint32*)zeroDelays;
 		return tmp[i];
 	}
@@ -210,7 +210,7 @@ class BinGroupsMultiSensorMemory final {
 		return data[(getAccumulatorRelativePos(sensor, group) + 1 + pos) & (GROUP_SIZE - 1) + sensor + group * SENSORS * GROUP_SIZE];
 	}*/
 
-	__device__ uint32 rawGet(uint8 i) {
+	__device__ uint32& rawGet(uint8 i) {
 		uint32* tmp = (uint32*)data;
 		return tmp[i];
 	}

@@ -112,9 +112,9 @@ int main() {
 		timer.getInterval();
 	}
 	
-
+	
 	std::cout << timesCalled << "\n";
-	for (int sensor = 0; sensor < SENSORS; ++sensor) {
+	for (int sensor = 0; sensor < 1; ++sensor) {
 		std::cout << "\n\n\t======= SENSOR " << sensor << " =======\n";
 
 		for (int lag = 0; lag < MAX_LAG; ++lag) {
@@ -127,7 +127,7 @@ int main() {
 
 	//write output to file
 	//AutocorrelationCUDA::DataFile<std::uint_fast32_t>::write(out);
-
+	
 	cudaDeviceReset();
 	return 0;
 }
@@ -155,11 +155,10 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 	//copy data
 	uint32* tmpArr1 = (uint32*)data;
 	uint32* tmpArr2 = (uint32*)output;
-	//TODO we can do less loops
-	for (int group = 0; group < GROUPS_PER_SENSOR; ++group) {
-		if(relativeID < X32_BITS_PER_BLOCK_ROW){
-			tmpArr1[relativeID + group * X32_BITS_PER_BLOCK_ROW] = binStructure.rawGet(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_DATA);
-			tmpArr2[relativeID + group * X32_BITS_PER_BLOCK_ROW] = (uint32)0; //set the output to 0
+	for (int i = 0; i < COPY_REPETITIONS; ++i) {
+		if(relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE < X32_BITS_PER_BLOCK_DATA){
+			tmpArr1[relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE] = (uint32)1;// binStructure.rawGet(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_DATA + i * SENSORS_PER_BLOCK * GROUP_SIZE);
+			tmpArr2[relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE] = (uint32)0; //set the output to 0
 		}
 	}
 
