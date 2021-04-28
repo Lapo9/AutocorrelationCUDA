@@ -4,9 +4,9 @@
 
 namespace AutocorrelationCUDA {
 
-using uint8 = std::uint_fast8_t;
-using uint16 = std::uint_fast16_t;
-using uint32 = std::uint_fast32_t;
+using uint8 = std::uint8_t;
+using uint16 = std::uint16_t;
+using uint32 = std::uint32_t;
 
 
 constexpr uint16 SENSORS = 1024;
