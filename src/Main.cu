@@ -98,7 +98,7 @@ int main() {
 	std::vector<std::uint_fast8_t> dataDebug(SENSORS * INSTANTS_PER_PACKET);
 	for (int i = 0; i < INSTANTS_PER_PACKET; ++i) {
 		for (int j = 0; j < SENSORS; ++j) {
-			dataDebug[i*SENSORS + j] = i % 10 +1;
+			dataDebug[i*SENSORS + j] = 100; //i % 10 +1;
 		}
 	}
 
