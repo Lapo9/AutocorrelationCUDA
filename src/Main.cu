@@ -149,16 +149,16 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 
 	//put data in shared memory
 	//TODO probably it is better to load only the most used groups (0, 1, 2, 3), to increase occupancy
-	__shared__ uint8 binStruct[BYTES_REQUIRED_FOR_BIN_STRUCTURE];
-	uint8* data = binStruct;
-	uint8* accumulatorsPos = &data[SENSORS_PER_BLOCK * GROUPS_PER_SENSOR * GROUP_SIZE];
-	uint8* zeroDelays = &accumulatorsPos[SENSORS_PER_BLOCK * GROUPS_PER_SENSOR];
+	__shared__ uint16 binStruct[ELEMS_REQUIRED_FOR_BIN_STRUCTURE];
+	uint16* data = binStruct;
+	uint16* accumulatorsPos = &data[SENSORS_PER_BLOCK * GROUPS_PER_SENSOR * GROUP_SIZE];
+	uint16* zeroDelays = &accumulatorsPos[SENSORS_PER_BLOCK * GROUPS_PER_SENSOR];
 	
-	__shared__ uint16 output[BYTES_REQUIRED_FOR_OUTPUT];
+	__shared__ uint32 output[ELEMS_REQUIRED_FOR_OUTPUT];
 
 	//copy data
 	uint32* tmpArr1 = (uint32*)data;
-	uint32* tmpArr2 = (uint32*)output;
+	uint32* tmpArr2;
 	for (int i = 0; i < COPY_REPETITIONS; ++i) {
 		if(relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE < X32_BITS_PER_BLOCK_DATA){
 			tmpArr1[relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE] = binStructure.rawGet(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_DATA + i * SENSORS_PER_BLOCK * GROUP_SIZE);
@@ -168,7 +168,7 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 	//set output to 0
 	for (int i = 0; i < COPY_REPETITIONS * 2; ++i) {
 		if (relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE < X32_BITS_PER_BLOCK_DATA * 2) {
-			tmpArr2[relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE] = (uint32)0; //set the output to 0
+			output[relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE] = 0; //set the output to 0
 		}
 	}
 

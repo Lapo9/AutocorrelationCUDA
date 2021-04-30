@@ -117,18 +117,18 @@ class BinGroupsMultiSensorMemory final {
 
 		//create matrix for data on GPU and fill it with 0
 		std::cout << "\nallocating data area on GPU\n";
-		cudaMalloc(&data, GROUP_SIZE * GROUPS_PER_SENSOR * SENSORS * sizeof(uint8));
-		cudaMemset(data, 0, GROUP_SIZE * GROUPS_PER_SENSOR * SENSORS * sizeof(uint8));
+		cudaMalloc(&data, GROUP_SIZE * GROUPS_PER_SENSOR * SENSORS * sizeof(uint16));
+		cudaMemset(data, 0, GROUP_SIZE * GROUPS_PER_SENSOR * SENSORS * sizeof(uint16));
 
 		//create matrix for zero delay data on GPU and fill it with 0
 		std::cout << "\allocating zero delay area on GPU\n";
-		cudaMalloc(&zeroDelays, GROUPS_PER_SENSOR * SENSORS * sizeof(uint8));
-		cudaMemset(zeroDelays, 0, GROUPS_PER_SENSOR * SENSORS * sizeof(uint8));
+		cudaMalloc(&zeroDelays, GROUPS_PER_SENSOR * SENSORS * sizeof(uint16));
+		cudaMemset(zeroDelays, 0, GROUPS_PER_SENSOR * SENSORS * sizeof(uint16));
 
 		//create matrix for accumulator positions for each group on GPU and fill it with 0
 		std::cout << "\nallocating accumulators on GPU\n";
-		cudaMalloc(&accumulatorsPos, GROUPS_PER_SENSOR * SENSORS * sizeof(uint8));
-		cudaMemset(accumulatorsPos, 0, GROUPS_PER_SENSOR * SENSORS * sizeof(uint8));
+		cudaMalloc(&accumulatorsPos, GROUPS_PER_SENSOR * SENSORS * sizeof(uint16));
+		cudaMemset(accumulatorsPos, 0, GROUPS_PER_SENSOR * SENSORS * sizeof(uint16));
 
 		std::cout << "\nBinGroupMultiSensor done!\n";
 	}
@@ -145,33 +145,33 @@ class BinGroupsMultiSensorMemory final {
 
 
 	
-	__device__ static uint8& getAccumulatorRelativePos(uint16 sensor, uint8 group, uint8* arr) {
+	__device__ static uint16& getAccumulatorRelativePos(uint16 sensor, uint16 group, uint16* arr) {
 		return arr[ACC_POS_START + sensor + group * SENSORS_PER_BLOCK];
 	}
 
 
-	__device__ static uint8& getZeroDelay(uint16 sensor, uint8 group, uint8* arr) {
+	__device__ static uint16& getZeroDelay(uint16 sensor, uint16 group, uint16* arr) {
 		return arr[ZERO_DELAY_START + sensor + group * SENSORS_PER_BLOCK];
 	}
 
 
-	__device__ static uint8& get(uint16 sensor, uint8 group, uint8 pos, uint8* arr) {
+	__device__ static uint16& get(uint16 sensor, uint16 group, uint16 pos, uint16* arr) {
 		return arr[((getAccumulatorRelativePos(sensor, group, arr)+1+pos) & (GROUP_SIZE-1)) + sensor * GROUP_SIZE + group * SENSORS_PER_BLOCK * GROUP_SIZE];
 	}
 
 
-	__device__ static uint8& getAccumulator(uint16 sensor, uint8 group, uint8* arr) {
+	__device__ static uint16& getAccumulator(uint16 sensor, uint16 group, uint16* arr) {
 		return arr[getAccumulatorRelativePos(sensor, group, arr) + sensor * GROUP_SIZE + group * SENSORS_PER_BLOCK * GROUP_SIZE];
 	}
 
 
-	__device__ static void insertNew(uint16 sensor, uint8 datum, uint8* arr) {
+	__device__ static void insertNew(uint16 sensor, uint16 datum, uint16* arr) {
 		getAccumulator(sensor, 0, arr) = datum;
 		getZeroDelay(sensor, 0, arr) = datum;
 	}
 
 
-	__device__ static void shift(uint16 sensor, uint8 group, uint8* arr) {
+	__device__ static void shift(uint16 sensor, uint16 group, uint16* arr) {
 		getAccumulatorRelativePos(sensor, group, arr) = (getAccumulatorRelativePos(sensor, group, arr)-1)&(GROUP_SIZE-1); //decrement accumulator pos
 
 		if (group < GROUP_SIZE - 1) {
@@ -187,30 +187,30 @@ class BinGroupsMultiSensorMemory final {
 
 
 
-	/*__device__ uint8& getAccumulatorRelativePos(uint16 sensor, uint8 group) {
+	/*__device__ uint16& getAccumulatorRelativePos(uint16 sensor, uint16 group) {
 		return accumulatorsPos[sensor + group * SENSORS];
 	}*/
 
-	__device__ uint32& rawGetAccumulatorRelativePos(uint8 i) {
+	__device__ uint32& rawGetAccumulatorRelativePos(uint16 i) {
 		uint32* tmp = (uint32*)accumulatorsPos;
 		return tmp[i];
 	}
 
 
-	/*__device__ uint8& getZeroDelay(uint16 sensor, uint8 group) {
+	/*__device__ uint16& getZeroDelay(uint16 sensor, uint16 group) {
 		return zeroDelays[sensor + group * SENSORS];
 	}*/
 
-	__device__ uint32& rawGetZeroDelay(uint8 i) {
+	__device__ uint32& rawGetZeroDelay(uint16 i) {
 		uint32* tmp = (uint32*)zeroDelays;
 		return tmp[i];
 	}
 
-	/*__device__ uint8& get(uint16 sensor, uint8 group, uint8 pos) {
+	/*__device__ uint16& get(uint16 sensor, uint16 group, uint16 pos) {
 		return data[(getAccumulatorRelativePos(sensor, group) + 1 + pos) & (GROUP_SIZE - 1) + sensor + group * SENSORS * GROUP_SIZE];
 	}*/
 
-	__device__ uint32& rawGet(uint8 i) {
+	__device__ uint32& rawGet(uint16 i) {
 		uint32* tmp = (uint32*)data;
 		return tmp[i];
 	}
@@ -218,9 +218,9 @@ class BinGroupsMultiSensorMemory final {
 
 
 	//arrays in GPU global memory
-	uint8* data;
-	uint8* zeroDelays;
-	uint8* accumulatorsPos;
+	uint16* data;
+	uint16* zeroDelays;
+	uint16* accumulatorsPos;
 };
 
 }
