@@ -16,23 +16,23 @@ namespace AutocorrelationCUDA {
 
 /*
 
-		 sens.0	 sens.1	 sens.2	 sens.3	 sens.4	...
-		+-------+-------+-------+-------+-------+----------
-		|	lag	|	lag	|	lag	|	lag	|	lag	|	lag	
-		|	1	|	1	|	1	|	1	|	1	|	...	
-		+-------+-------+-------+-------+-------+----------
-		|	lag	|	lag	|	lag	|	lag	|	lag	|	lag
-		|	2	|	2	|	2	|	2	|	2	|	...
-		+-------+-------+-------+-------+-------+----------
-		|	lag	|	lag	|	lag	|	lag	|	lag	|	lag
-		|	3	|	3	|	3	|	3	|	3	|	...
-		+-------+-------+-------+-------+-------+----------
-		|	lag	|	lag	|	lag	|	lag	|	lag	|	lag
-		|	4	|	4	|	4	|	4	|	4	|	...
-		+-------+-------+-------+-------+-------+----------
-		|	...	|	...	|	...	|	...	|	...	|	...	
-		|		|		|		|		|		|		
 
+			+-------+-------+-------+-------
+	sensor	|	lag	|	lag	|	lag	|	...	
+		0	|	1	|	2	|	3	|		
+			+-------+-------+-------+-------
+	sensor	|	lag	|	lag	|	lag	|	...	
+		1	|	1	|	2	|	3	|		
+			+-------+-------+-------+-------
+	sensor	|	lag	|	lag	|	lag	|	...	
+		2	|	1	|	2	|	3	|		
+			+-------+-------+-------+-------
+	sensor	|	lag	|	lag	|	lag	|	...	
+		3	|	1	|	2	|	3	|		
+			+-------+-------+-------+-------
+	...		|	...	|	...	|	...	|	...	
+			|		|		|		|		
+													 
 */
 
 
@@ -52,20 +52,18 @@ class ResultArray final {
 
 
 
-	__device__ static void addTo(uint16 sensor, uint8 lag, uint32 datum, uint32* arr) {
-		arr[sensor + lag * SENSORS_PER_BLOCK] += datum;
+	__device__ static uint32& get(uint16 sensor, uint16 lag, uint32* arr) {
+		return arr[sensor * MAX_LAG + lag];
 	}
 
 
-	__device__ void addTo(uint16 sensor, uint8 relativeLag, uint8 binGroup, uint32 datum) {
-		data[relativeLag + sensor * GROUP_SIZE + binGroup * SENSORS * GROUP_SIZE] += datum;
+	__device__ void addTo(uint16 sensor, uint16 lag, uint16 datum) {
+		data[sensor * MAX_LAG + lag] += datum;
 	}
 
 
 	__host__ uint32 get(uint16 sensor, uint8 lag) {
-		int relativeLag = lag % 32;
-		int binGroup = lag / 32;
-		return toVector()[relativeLag + sensor * GROUP_SIZE + binGroup * SENSORS * GROUP_SIZE];
+		return toVector()[sensor * MAX_LAG + lag];
 	}
 
 

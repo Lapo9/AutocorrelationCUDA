@@ -202,7 +202,7 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 			uint32 repeatTimes = AutocorrelationCUDA::repeatTimes(instantsProcessed, 32);
 			for (uint8 j = 0; j < repeatTimes; ++j) {
 
-				output[relativeID + GROUP_SIZE * SENSORS_PER_BLOCK * j] += BinGroupsMultiSensorMemory::getZeroDelay(threadIdx.y, j, data) * BinGroupsMultiSensorMemory::get(threadIdx.y, j, threadIdx.x, data);
+				ResultArray::get(threadIdx.y, j * GROUP_SIZE + threadIdx.x,  output) += BinGroupsMultiSensorMemory::getZeroDelay(threadIdx.y, j, data) * BinGroupsMultiSensorMemory::get(threadIdx.y, j, threadIdx.x, data);
 				__syncthreads();
 
 				//only one thread per sensor makes the shift
@@ -233,6 +233,6 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 
 	//copy output to total output
 	for (int i = 0; i < GROUPS_PER_SENSOR; ++i) {
-		out.addTo(absoluteY, threadIdx.x, i, output[relativeID + blockDim.x * i]);
+		out.addTo(absoluteY, i * GROUP_SIZE + threadIdx.x, ResultArray::get(threadIdx.y, i * GROUP_SIZE + threadIdx.x, output)); //TODO it doesn't work perfectly, check ResultArray class
 	}
 }
