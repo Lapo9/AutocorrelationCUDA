@@ -95,7 +95,7 @@ int main() {
 									      return ((double)tp.tv_sec + (double)tp.tv_usec * 0.000001);}};
 	
 
-	std::vector<std::uint_fast8_t> dataDebug(SENSORS * INSTANTS_PER_PACKET);
+	std::vector<uint8> dataDebug(SENSORS * INSTANTS_PER_PACKET);
 	for (int i = 0; i < INSTANTS_PER_PACKET; ++i) {
 		for (int j = 0; j < SENSORS; ++j) {
 			dataDebug[i*SENSORS + j] = 1; //i % 10 +1;
@@ -195,7 +195,7 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 		//calculate autocorrelation for that instant
 		//Decides how many group to calculate, based on how many instants have been already processed (i.e. 1 instant-->0; 2-->0,1; 3-->0; 4-->0,1,2; 5-->0; 6-->0,1; ...)
 		uint32 repeatTimes = AutocorrelationCUDA::repeatTimes(instantsProcessed, 32);
-		for (uint8 j = 0; j < repeatTimes; ++j) {
+		for (uint8 j = 0; j < repeatTimes && j < GROUPS_PER_SENSOR; ++j) {
 
 			ResultArray::get(threadIdx.y, j * GROUP_SIZE + threadIdx.x,  output) += BinGroupsMultiSensorMemory::getZeroDelay(threadIdx.y, j, data) * BinGroupsMultiSensorMemory::get(threadIdx.y, j, threadIdx.x, data);
 			__syncthreads();
