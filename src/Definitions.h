@@ -13,7 +13,7 @@ constexpr uint16 SENSORS = 1024;
 constexpr uint8 SENSORS_PER_BLOCK = 8;
 constexpr uint8 GROUPS_PER_SENSOR = 10;
 constexpr uint8 GROUP_SIZE = 32;
-constexpr uint8 REPETITIONS = 1;
+constexpr uint8 REPETITIONS = 2;
 constexpr uint32 INSTANTS_PER_PACKET = 100;
 
 

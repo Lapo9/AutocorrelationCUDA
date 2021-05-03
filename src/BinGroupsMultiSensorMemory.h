@@ -268,7 +268,7 @@ class BinGroupsMultiSensorMemory final {
 	 * @return A reference to the i-th 32-bits integer of data.
 	 * @pre i < ceil(data.length / 2)
 	 */
-	__device__ uint32& rawGetAccumulatorRelativePos(uint16 i) {
+	__device__ uint32& rawGetAccumulatorRelativePos(uint32 i) {
 		uint32* tmp = (uint32*)accumulatorsPos;
 		return tmp[i];
 	}
@@ -282,7 +282,7 @@ class BinGroupsMultiSensorMemory final {
 	* @return A reference to the i-th 32-bits integer of data.
 	* @pre i < ceil(zeroDelays.length / 2)
 	*/
-	__device__ uint32& rawGetZeroDelay(uint16 i) {
+	__device__ uint32& rawGetZeroDelay(uint32 i) {
 		uint32* tmp = (uint32*)zeroDelays;
 		return tmp[i];
 	}
@@ -296,7 +296,7 @@ class BinGroupsMultiSensorMemory final {
 	* @return A reference to the i-th 32-bits integer of data.
 	* @pre i < ceil(accumulatorsPos.length / 2)
 	*/
-	__device__ uint32& rawGet(uint16 i) {
+	__device__ uint32& rawGet(uint32 i) {
 		uint32* tmp = (uint32*)data;
 		return tmp[i];
 	}
