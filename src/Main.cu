@@ -102,7 +102,10 @@ int main() {
 		}
 	}
 
-	std::uint_fast32_t timesCalled; //counter
+	uint16 repetitions = REPETITIONS;
+	uint16 ipp = COPY_REPETITIONS;
+
+	uint32 timesCalled; //counter
 	timer.start();
 	for(timesCalled = 0; timesCalled < REPETITIONS; ++timesCalled) {
 		inputArray.setNewDataPacket(dataDebug); //store in GPU memory a new block of data to be processed
@@ -220,7 +223,7 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 	//copy accumulatorsPos and zeroDelays out
 	tmpArr1 = (uint32*)accumulatorsPos;
 	tmpArr2 = (uint32*)zeroDelays;
-	if (relativeID < GROUPS_PER_SENSOR * SENSORS_PER_BLOCK / 4) {
+	if (relativeID < GROUPS_PER_SENSOR * SENSORS_PER_BLOCK / 2) {
 		binStructure.rawGetAccumulatorRelativePos(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_ZD_ACC) = tmpArr1[relativeID];
 		binStructure.rawGetZeroDelay(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_ZD_ACC) = tmpArr2[relativeID];
 	}
@@ -231,4 +234,5 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 			out.rawGet(relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE + blockIdx.x * X32_BITS_PER_BLOCK_DATA * 2) = output[relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE];
 		}
 	}
+	__syncthreads();
 }
