@@ -47,6 +47,8 @@ class ResultArray final {
 		 cudaMalloc(&data, SENSORS * MAX_LAG * sizeof(uint32));
 		 cudaMemset(data, 0, SENSORS * MAX_LAG * sizeof(uint32));
 
+		 hostData = (uint32*)malloc(SENSORS * MAX_LAG * sizeof(uint32));
+
 		 std::cout << "\nResultArray done!\n";
 	}
 
@@ -62,15 +64,13 @@ class ResultArray final {
 	}
 
 
-	__host__ uint32 get(uint16 sensor, uint8 lag) {
-		return toVector()[sensor * MAX_LAG + lag];
+	__host__ uint32 get(uint16 sensor, uint16 lag) {
+		return hostData[sensor * MAX_LAG + lag];
 	}
 
 
-	__host__ std::vector<uint32> toVector() {		
-		std::vector<uint32> result(MAX_LAG * SENSORS);
-		cudaMemcpy(result.data(), data, MAX_LAG * SENSORS * sizeof(uint32), cudaMemcpyDeviceToHost);
-		return result;
+	__host__ void download() {		
+		cudaMemcpy(hostData, data, MAX_LAG * SENSORS * sizeof(uint32), cudaMemcpyDeviceToHost);
 	}
 
 
@@ -79,6 +79,8 @@ class ResultArray final {
 	private:
 
 	uint32* data;
+
+	uint32* hostData;
 
 };
 }

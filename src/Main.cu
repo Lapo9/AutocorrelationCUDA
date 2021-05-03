@@ -115,16 +115,13 @@ int main() {
 		timer.getInterval();
 	}
 	
-	
-	std::cout << timesCalled << "\n";
+	out.download();	
+	std::cout << "\Kernel called " << timesCalled << " times\n";
 	for (int sensor = 0; sensor < 1; ++sensor) {
 		std::cout << "\n\n\t======= SENSOR " << sensor << " =======\n";
 
 		for (int lag = 0; lag < MAX_LAG; ++lag) {
-			int curr = out.get(sensor, lag);
-			//int div = (timesCalled*instantsPerPacket) - lag;
-			//float print = (float) curr / div;
-			std::cout << "\n\t" << lag+1 << " --> " << curr;
+			std::cout << "\n\t" << lag+1 << " --> " << out.get(sensor, lag);;
 		}
 	}
 
@@ -176,7 +173,7 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 	//copy accumulatorsPos and zeroDelays
 	tmpArr1 = (uint32*)accumulatorsPos;
 	tmpArr2 = (uint32*)zeroDelays;
-	if (relativeID < GROUPS_PER_SENSOR * SENSORS_PER_BLOCK / 4) {
+	if (relativeID < GROUPS_PER_SENSOR * SENSORS_PER_BLOCK / 2) {
 		tmpArr1[relativeID] = binStructure.rawGetAccumulatorRelativePos(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_ZD_ACC);
 		tmpArr2[relativeID] = binStructure.rawGetZeroDelay(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_ZD_ACC);
 	}

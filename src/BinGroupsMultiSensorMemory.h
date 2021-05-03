@@ -138,7 +138,7 @@ class BinGroupsMultiSensorMemory final {
 
 		//create matrix for zero delay data on GPU and fill it with 0
 		std::cout << "\allocating zero delay area on GPU\n";
-		cudaMalloc(&zeroDelays, OUPS_PER_SENSOR * SENSORS * sizeof(uint16));
+		cudaMalloc(&zeroDelays, GROUPS_PER_SENSOR * SENSORS * sizeof(uint16));
 		cudaMemset(zeroDelays, 0, GROUPS_PER_SENSOR * SENSORS * sizeof(uint16));
 
 		//create matrix for accumulator positions for each group on GPU and fill it with 0
@@ -202,7 +202,7 @@ class BinGroupsMultiSensorMemory final {
 	* @pre sensor < SENSORS_PER_BLOCK, group < GROUPS_PER_SENSOR, pos < GROUP_SIZE
 	*/
 	__device__ static uint16& get(uint16 sensor, uint16 group, uint16 pos, uint16* arr) {
-		return arr[((getAccumulatorRelativePos(sensor, group, arr)+1+pos) & (GROUP_SIZE-1)) + sensor * GROUP_SIZE + group * SENSORS_PER_BLOCK * GROUP_SIZE];
+		return arr[((getAccumulatorRelativePos(sensor, group, arr)+pos) & (GROUP_SIZE-1)) + sensor * GROUP_SIZE + group * SENSORS_PER_BLOCK * GROUP_SIZE];
 	}
 
 
@@ -248,7 +248,7 @@ class BinGroupsMultiSensorMemory final {
 	__device__ static void shift(uint16 sensor, uint16 group, uint16* arr) {
 		getAccumulatorRelativePos(sensor, group, arr) = (getAccumulatorRelativePos(sensor, group, arr)-1)&(GROUP_SIZE-1); //decrement accumulator pos
 
-		if (group < GROUP_SIZE - 1) {
+		if (group < GROUPS_PER_SENSOR - 1) {
 			getAccumulator(sensor, group+1, arr) += getAccumulator(sensor, group, arr);
 			getZeroDelay(sensor, group+1, arr) += getZeroDelay(sensor, group, arr);
 		}
