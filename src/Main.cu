@@ -162,10 +162,10 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 		}
 	}
 
-	//set output to 0
+	//copy output
 	for (int i = 0; i < COPY_REPETITIONS * 2; ++i) {
 		if (relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE < X32_BITS_PER_BLOCK_DATA * 2) {
-			output[relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE] = 0; //set the output to 0
+			output[relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE] = out.rawGet(relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE + blockIdx.x * X32_BITS_PER_BLOCK_DATA * 2);
 		}
 	}
 
@@ -225,9 +225,10 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 		binStructure.rawGetZeroDelay(relativeID + blockIdx.x * X32_BITS_PER_BLOCK_ZD_ACC) = tmpArr2[relativeID];
 	}
 
-	//copy output to total output
-	for (int i = 0; i < GROUPS_PER_SENSOR; ++i) {
-		out.addTo(absoluteY, i * GROUP_SIZE + threadIdx.x, ResultArray::get(threadIdx.y, i * GROUP_SIZE + threadIdx.x, output)); //TODO it doesn't work perfectly, check ResultArray class
+	//copy output
+	for (int i = 0; i < COPY_REPETITIONS * 2; ++i) {
+		if (relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE < X32_BITS_PER_BLOCK_DATA * 2) {
+			out.rawGet(relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE + blockIdx.x * X32_BITS_PER_BLOCK_DATA * 2) = output[relativeID + i * SENSORS_PER_BLOCK * GROUP_SIZE];
+		}
 	}
-	__syncthreads();
 }

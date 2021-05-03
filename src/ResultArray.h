@@ -59,8 +59,8 @@ class ResultArray final {
 	}
 
 
-	__device__ void addTo(uint16 sensor, uint16 lag, uint16 datum) {
-		data[sensor * MAX_LAG + lag] += datum;
+	__device__ uint32& rawGet(uint32 i) {
+		return data[i];
 	}
 
 
