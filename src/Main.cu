@@ -102,9 +102,6 @@ int main() {
 		}
 	}
 
-	uint16 repetitions = REPETITIONS;
-	uint16 ipp = COPY_REPETITIONS;
-
 	uint32 timesCalled; //counter
 	timer.start();
 	for(timesCalled = 0; timesCalled < REPETITIONS; ++timesCalled) {
