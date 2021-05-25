@@ -62,7 +62,7 @@ namespace AutocorrelationCUDA {
 			}
 			pow2 = pow2 << 1;
 		}
-		return 0;
+		return bits;
 	}
 }
 
@@ -98,7 +98,7 @@ int main() {
 	std::vector<uint8> dataDebug(SENSORS * INSTANTS_PER_PACKET);
 	for (int i = 0; i < INSTANTS_PER_PACKET; ++i) {
 		for (int j = 0; j < SENSORS; ++j) {
-			dataDebug[i*SENSORS + j] = 1; //i % 10 +1;
+			dataDebug[i*SENSORS + j] = (i%4) +1;
 		}
 	}
 
@@ -184,7 +184,6 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 
 	//cycle over all of the new data, where i is the instant in time processed
 	for (int i = 0; i < INSTANTS_PER_PACKET; ++i) {
-		instantsProcessed++;
 
 		//only one thread per sensor adds the new datum to the bin structure
 		if (relativeID < SENSORS_PER_BLOCK) {
@@ -206,6 +205,8 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 			}
 			__syncthreads();
 		}
+
+		instantsProcessed++;
 	}
 
 
