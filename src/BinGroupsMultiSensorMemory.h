@@ -229,9 +229,11 @@ class BinGroupsMultiSensorMemory final {
 	 * @param arr Pointer to the first position of the array containing the portion of the BinGroupsMultiSensorMemory allocated in the GPU shared memory.
 	 * @pre sensor < SENSORS_PER_BLOCK
 	 */
-	__device__ static void insertNew(uint16 sensor, uint16 datum, uint16* arr) {
-		getAccumulator(sensor, 0, arr) = datum;
-		getZeroDelay(sensor, 0, arr) = datum;
+	__device__ static void insertNew(uint16 sensor, uint16 group, uint16 datum, uint16* arr) {
+		if (group == 0) {
+			getAccumulator(sensor, group, arr) = datum;
+		}
+		getZeroDelay(sensor, group, arr) += datum;
 	}
 
 
@@ -250,7 +252,6 @@ class BinGroupsMultiSensorMemory final {
 
 		if (group < GROUPS_PER_SENSOR - 1) {
 			getAccumulator(sensor, group+1, arr) += getAccumulator(sensor, group, arr);
-			getZeroDelay(sensor, group+1, arr) += getZeroDelay(sensor, group, arr);
 		}
 
 		getAccumulator(sensor, group, arr) = 0;

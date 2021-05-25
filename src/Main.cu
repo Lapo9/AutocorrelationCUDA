@@ -98,7 +98,7 @@ int main() {
 	std::vector<uint8> dataDebug(SENSORS * INSTANTS_PER_PACKET);
 	for (int i = 0; i < INSTANTS_PER_PACKET; ++i) {
 		for (int j = 0; j < SENSORS; ++j) {
-			dataDebug[i*SENSORS + j] = (i%4) +1;
+			dataDebug[i*SENSORS + j] = (i%7) +1;
 		}
 	}
 
@@ -184,10 +184,11 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 
 	//cycle over all of the new data, where i is the instant in time processed
 	for (int i = 0; i < INSTANTS_PER_PACKET; ++i) {
-
+		
+		instantsProcessed++;
 		//only one thread per sensor adds the new datum to the bin structure
-		if (relativeID < SENSORS_PER_BLOCK) {
-			BinGroupsMultiSensorMemory::insertNew(relativeID, packet.get(startingAbsoluteY + relativeID, i), data);
+		if (threadIdx.x < GROUPS_PER_SENSOR) {
+			BinGroupsMultiSensorMemory::insertNew(threadIdx.y, threadIdx.x, packet.get(startingAbsoluteY + relativeID, i), data);
 		}
 		__syncthreads();
 			
@@ -195,18 +196,20 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 		//Decides how many group to calculate, based on how many instants have been already processed (i.e. 1 instant-->0; 2-->0,1; 3-->0; 4-->0,1,2; 5-->0; 6-->0,1; ...)
 		uint32 repeatTimes = AutocorrelationCUDA::repeatTimes(instantsProcessed, 32);
 		for (uint8 j = 0; j < repeatTimes && j < GROUPS_PER_SENSOR; ++j) {
+			
+			uint8 lastGroup = repeatTimes < GROUPS_PER_SENSOR ? repeatTimes - 1 : GROUPS_PER_SENSOR -1;
 
-			ResultArray::get(threadIdx.y, j * GROUP_SIZE + threadIdx.x,  output) += BinGroupsMultiSensorMemory::getZeroDelay(threadIdx.y, j, data) * BinGroupsMultiSensorMemory::get(threadIdx.y, j, threadIdx.x, data);
+			ResultArray::get(threadIdx.y, (lastGroup-j) * GROUP_SIZE + threadIdx.x,  output) += BinGroupsMultiSensorMemory::getZeroDelay(threadIdx.y, lastGroup - j, data) * BinGroupsMultiSensorMemory::get(threadIdx.y, lastGroup - j, threadIdx.x, data);
 			__syncthreads();
 
 			//only one thread per sensor makes the shift
 			if (relativeID < SENSORS_PER_BLOCK) {
-				BinGroupsMultiSensorMemory::shift(relativeID, j, data);
+				BinGroupsMultiSensorMemory::shift(relativeID, lastGroup - j, data);
 			}
 			__syncthreads();
 		}
 
-		instantsProcessed++;
+		
 	}
 
 
