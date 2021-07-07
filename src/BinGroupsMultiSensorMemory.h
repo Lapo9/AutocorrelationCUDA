@@ -17,8 +17,10 @@ namespace AutocorrelationCUDA {
 
 
 /**	
-
-	next array structure eliminates bank conflicts in CUDA shared memory
+	@brief 
+	
+	@details
+	Next array structure eliminates bank conflicts in CUDA shared memory
 		
 		assumed 8 sensors per block, 10 bin groups, group size 32, initial state (accumulators on first position)
 																																											
@@ -125,7 +127,7 @@ class BinGroupsMultiSensorMemory final {
 	public:
 
 	/**
-	 * @brief Creates the structure described in the class description in the GPU global memory, and initializes it wizth zeroes.
+	 * @brief Creates the structure described in the class description in the GPU global memory, and initializes it with zeroes.
 	 */
 	__host__ BinGroupsMultiSensorMemory() {
 		

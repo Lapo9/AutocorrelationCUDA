@@ -21,19 +21,32 @@ std::istream& operator>>(std::istream& file, std::uint8_t& val) {
 
 
 
-//this class is a simple helper to read the file where test data is stored
+/** 
+* @brief Simple helper to read the file where test data is stored.
+* @tparam ConatinedType Type of data contained by the file.
+**/
 template<typename ContainedType>
 class DataFile final : public CudaInput<ContainedType> {
 	
 	public:
 
+	/**
+	* @brief Creats a new DataFile object, based on the specified parameters.
+	* @param path Path to the file.
+	* @param fileName Name of the file (without extension).
+	* @param format Extension of the file (defaults to .txt).
+	**/
 	DataFile(const std::string& path, const std::string& fileName, const std::string& format = ".txt") : file{path+fileName+format}, fileName{fileName}, format{format} {
 		if (!file.is_open()) {
 			throw std::runtime_error("Cannot open the file: " + path + fileName + format);
 		}
 	}
 
-	//Read valsToRead values and return them in an array. If valsToRead is less then the remaining length of the file, read till eof.
+	/**
+	* @brief Reads the specified amount of values and return them in a vector. If valsToRead is less then the remaining length of the file, read till eof.
+	* @param valsToRead How many values to read from the file.
+	* @return Vector containing the data read.
+	**/
 	std::vector<ContainedType> read(std::uint_fast32_t valsToRead){
 		std::vector<ContainedType> vals{};
 		ContainedType tmp;
@@ -46,7 +59,10 @@ class DataFile final : public CudaInput<ContainedType> {
 	}
 
 
-	//Read all the values in the file and return them in an array.
+	/**
+	* @brief Reads all of the values in the file.
+	* @return Vector containing the data read.
+	**/
 	std::vector<ContainedType> read() {
 		std::vector<ContainedType> vals{};
 		ContainedType tmp;
@@ -59,8 +75,13 @@ class DataFile final : public CudaInput<ContainedType> {
 	}
 
 
-	//Write the vector to a file named as the input file with suffix "_out". 
-	//The file is saved in the current directory.
+	/**
+	* @brief Writes the vector to a file. The file is saved in the current directory.
+	* @tparam OutType Type of data to be stored to the file. Defaults to the input file data type.
+	* @param data Data to save to the external file.
+	* @param name Relative path from current directory and name of the file. Defaults to "out_data.txt".
+	* @param separator How to divide the written data in the file. Defaults to "\n".
+	**/
 	template <typename OutType = ContainedType>
 	static void write(const std::vector<OutType>& data, const std::string& name = "out_data.txt", const std::string& separator = "\n"){
 		std::fstream out{name, std::ios_base::out};

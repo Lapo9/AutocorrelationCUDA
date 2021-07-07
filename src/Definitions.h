@@ -1,19 +1,43 @@
 #ifndef AUTOCORRELATIONCUDA_DEFINITIONS
 #define AUTOCORRELATIONCUDA_DEFINITIONS
 
-
+/**
+* @brief Contains all of the classes/definitions used for this project.
+**/
 namespace AutocorrelationCUDA {
 
 using uint8 = std::uint8_t;
 using uint16 = std::uint16_t;
 using uint32 = std::uint32_t;
 
-
+/**
+* @brief Number of sensors.
+**/
 constexpr uint16 SENSORS = 1024;
+
+/**
+* @brief Number of sensors in each CUDA block.
+**/
 constexpr uint8 SENSORS_PER_BLOCK = 8;
+
+/**
+* @brief Number of bin groups for each sensor.
+**/
 constexpr uint8 GROUPS_PER_SENSOR = 10;
+
+/**
+* @brief Number of elements in each group.
+**/
 constexpr uint8 GROUP_SIZE = 32;
+
+/**
+* @brief How many times to run the algorithm.
+**/
 constexpr uint16 REPETITIONS = 1;
+
+/**
+* @brief Number of values in each packet sent to the GPU.
+**/
 constexpr uint32 INSTANTS_PER_PACKET = 400;
 
 

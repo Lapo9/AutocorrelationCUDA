@@ -7,12 +7,23 @@
 
 namespace AutocorrelationCUDA{
 
+/**
+* @brief Simple timer class to measure performance.
+**/
 class Timer final {
 
 	public:
 
+	/**
+	* @brief Creates a new Timer, with the specified final action and strategy to get the current time.
+	* @param finalAction Action to be performed when the timer is destroyed (for example save collected data to file). The intervals calculated are passed in as a vector of double.
+	* @param getCurrentTime Function to get the current time, used to calculate intervals.
+	**/
 	Timer(std::function<void(std::vector<double>)> finalAction, std::function<double()> getCurrentTime) : finalAction{finalAction}, getCurrentTime{getCurrentTime} {}
 	
+	/**
+	* @brief Performs the final action and destroys the Timer.
+	**/
 	~Timer() {
 		results.emplace_back(getCurrentTime() - startTime);
 		finalAction(results);
@@ -24,11 +35,17 @@ class Timer final {
 	Timer operator= (Timer&&) = delete;
 
 
+	/**
+	* @brief Starts the Timer.
+	**/
 	void start() {
 		startTime = intervalTime = getCurrentTime();
 	}
 
 
+	/**
+	* @brief Gets the split time and saves the elapsed time from last call to this function (or start) to the result array.
+	**/
 	void getInterval() {
 		double stopTime = getCurrentTime();
 		results.emplace_back(stopTime-intervalTime);
@@ -36,6 +53,9 @@ class Timer final {
 	}
 
 
+	/**
+	* @brief Starts a new interval without saving previous one.
+	**/
 	void startInterval() {
 		intervalTime = getCurrentTime();;
 	}

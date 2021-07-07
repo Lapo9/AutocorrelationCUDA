@@ -13,12 +13,18 @@ namespace AutocorrelationCUDA {
 
 using namespace std::chrono_literals;
 
-//once every rest milliseconds the Feeder run the user defined transfer() function
+/**
+* @brief Once every x milliseconds, the Feeder runs the user defined transfer() function.
+**/
 class Feeder final {
 
 	public:
 	
-	//creates a Feeder with the specified rest time and function
+	/**
+	* @brief Creates a Feeder with the specified rest time and function.
+	* @param rest How many milliseconds must elaps between two calls to the transfer function.
+	* @param transfer Routine to execute once every rest milliseconds.
+	**/
 	Feeder(const std::chrono::milliseconds rest, const std::function<void()> transfer) : transfer{transfer}, rest{rest} {}
 
 	Feeder(const Feeder& feeder) = delete;
@@ -27,6 +33,9 @@ class Feeder final {
 	Feeder& operator = (const Feeder& feeder) = delete;
 	Feeder& operator = (Feeder&& feeder) = delete;
 
+	/**
+	* @brief Stops the Feeder and destroys it.
+	**/
 	~Feeder() noexcept {
 		setTerminate(true);
 		cv.notify_all();
@@ -34,7 +43,9 @@ class Feeder final {
 	}
 
 
-	//starts the thread that loops and run the user defined transfer() function
+	/**
+	* @brief Starts the thread that loops and run the user defined transfer() function.
+	**/
 	void start() {
 		std::cout << "\nSTART\n";
 		//a Feeder can be start only once
@@ -56,7 +67,10 @@ class Feeder final {
 			});
 	}
 
-	//pauses the Feeder till resume() is called
+
+	/**
+	* @brief Pauses the Feeder till resume() is called.
+	**/
 	void pause() {
 		if(!paused) {
 			std::cout << "\nPAUSED\n";
@@ -66,7 +80,9 @@ class Feeder final {
 		}
 	}
 
-	//resumes a paused Feeder
+	/**
+	* @brief Resumes a paused Feeder.
+	**/
 	void resume() {
 		if(paused) {
 			std::cout << "\nRESUME\n";

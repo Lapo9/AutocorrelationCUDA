@@ -8,25 +8,51 @@
 
 namespace AutocorrelationCUDA {
 
+/**
+* @brief Simple and fast way to provide data for the program.
+* @tparam OutType Underlying type of the data stored.
+**/
 template <typename OutType>
 class InputVector final : public CudaInput<OutType> {
 
 	public:
+
+	/**
+	* @brief Creates a new InputVector based on the specified vector.
+	* @param v The vector to copy.
+	**/
 	InputVector(std::vector<OutType> v) : base{v} {}
 
+	/**
+	* @brief Creates a new InputVector based on the data stored in the specified file.
+	* @param path Path to the file.
+	* @param fileName Name of the file (without extension).
+	* @param format Extension of the file (defaults to .txt).
+	**/
 	InputVector(const std::string& path, const std::string& fileName, const std::string& format = ".txt") {
 		AutocorrelationCUDA::DataFile<OutType> tmp{path, fileName, format};
 		base = tmp.read();
 	}
 
+
+	/**
+	* @brief Reads all of the vector.
+	* @return The underlying vector.
+	**/
 	std::vector<OutType> read() {
 		return std::vector<OutType>{base};
 	}
 
-	std::vector<OutType> read(std::uint_fast32_t valsToRead) {
+
+	/**
+	* @brief Reads the specified amount of data from the vector, starting where the last read ended.
+	* @param valsToRead How many values to read.
+	* @return A vector containing the data read.
+	**/
+	std::vector<OutType> read(uint32 valsToRead) {
 		std::vector<OutType> out(valsToRead);
 
-		for (std::uint_fast32_t i = 0; i < valsToRead; ++i) {
+		for (uint32 i = 0; i < valsToRead; ++i) {
 			out[i] = base[pos%base.size()];
 			pos++;
 		}
@@ -36,7 +62,7 @@ class InputVector final : public CudaInput<OutType> {
 
 	private:
 	std::vector<OutType> base;
-	std::uint_fast32_t pos = 0;
+	uint32 pos = 0;
 };
 
 }

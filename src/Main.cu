@@ -53,6 +53,15 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 
 
 namespace AutocorrelationCUDA {
+
+	/**
+	* @brief Counts how many bin groups should be processed at the given instant.
+	* @details Groups to process = max({k | instant % 2^k == 0}).
+	* @tparam Integer Integer type of the instant.
+	* @param x The instant.
+	* @param bits Number of bits of the integer type representing the instant.
+	* @return How many bin groups should be processed at the given instant.
+	**/
 	template<typename Integer>
 	__device__ static Integer repeatTimes(Integer x, std::int8_t bits) {
 		Integer pow2 = 1;
@@ -135,7 +144,15 @@ int main() {
 
 
 
-
+/**
+* @brief Calculates the autocorrelation of the data in the packet. At the end of the processing it copies it to the host device.
+* @details This CUDA function is optimized to work in the shortest time possible. 
+		   To achieve this result all of the data in the binStructure and in the out array, is copied to the shared memory of the GPU, and copied back to the global memory at the end of the computation.
+* @param packet New data to analize.
+* @param binStructure To ensure a fast computation, the bigger is the lag, the more coalesced the data is. For example, if lag is 14, all of the instants in the packet array is treated singularly. Whereas, if lag is bigger (41), then 2 consequent intants in the packet array are summed togheter. binStructure is the object which encapsulates this concept.
+* @param instantsProcessed How many instants have been already processed in previous calls to this function.
+* @param out Output array, containing data computed in previous calls to this function.
+**/
 __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemory binStructure, uint32 instantsProcessed, ResultArray out) {
 	
 	//precondition: blockDim.x = groupSize, blockDim.y = sensorsPerBlock
@@ -145,7 +162,6 @@ __global__ void autocorrelate(SensorsDataPacket packet, BinGroupsMultiSensorMemo
 	uint8 relativeID = threadIdx.x + threadIdx.y * blockDim.x; //not more than 256 threads per block (basically 8 sensors)
 
 	//put data in shared memory
-	//TODO probably it is better to load only the most used groups (0, 1, 2, 3), to increase occupancy
 	__shared__ uint16 binStruct[ELEMS_REQUIRED_FOR_BIN_STRUCTURE];
 	uint16* data = binStruct;
 	uint16* accumulatorsPos = &data[SENSORS_PER_BLOCK * GROUPS_PER_SENSOR * GROUP_SIZE];
