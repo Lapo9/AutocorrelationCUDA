@@ -1,5 +1,6 @@
 # AutocorrelationCUDA
 **Student:** Lapo Falcone
+
 **Supervisor:** Gianpaolo Cugola
 
 ## Objectives
@@ -59,7 +60,7 @@ In order to implement the formal algorithm in an efficient way, we had to create
 ###### Bin group multi sensor memory
 This data structure has the responsibility to hold data while being processed, and to maintain this data following the multi-tau rules. So it is its responsibility to coalesce the bins based on the threshold.
 
-ADD IMAGE
+![Memory layout](https://github.com/Lapo9/AutocorrelationCUDA/blob/multi_tau/documentation/Images/BinGroup.png)
 
 There is such structure for each sensor of the matrix.
 
@@ -103,7 +104,64 @@ Last, the choice of 32 as the size of a bin group also makes it possible to have
 1. Copy back data from shared memory to global memory
 
 
-
 ## Tools
+_Nvidia CUDA library, C++_
+
+### Nvidia CUDA library
+In order to program on the GPU we decided to use the library provided by Nvidia: CUDA. CUDA is exposed through a C API, and only works on Nvidia devices. We chose CUDA because the physical machine used for the experiment at Politecnico mounts a Titan X (Pascal).
+
+GPU programming, as mentioned before, has a different paradigm compared to standard CPU programming. These are the most important concepts that differentiate the two.
+
+#### Programming model
+Kernels are functions that run on GPU. Unlike standard functions, where multithreading must be specifically implemented, kernels are multithreaded by default. This means that by default each instruction present in a kernel is executed simultaneously by all of the threads the kernel is made up of. Each thread can be easily identified by its unique ID, and, based on this ID, a thread can execute the same instruction as the other threads, on different data. This concept is known as SIMD, Single Instruction Multiple Data.
+
+On CUDA architecture each thread is executed by a CUDA core. Moreover threads can be organized in a thread hierarchy. Indeed, at kernel invocation, it is possible to specify how many threads and how many threads blocks are available. A thread block is a set of threads, which have incremental IDs. Threads in threads blocks can also be organized in a 2D or 3D way. If one decides to use a 3D block, each thread is identified by a x, y and z component. By the way, the shape of the block is irrelevant performance wise, since even in a 2D block threads are organized in a linear fashion, and their real ID can be obtained by: `ID = ID.x + ID.y * blockDim.x`.
+
+Even threads block can be organized in a structure called grid. A grid is a set of thread blocks, just like a thread block is a set of threads. The structure is the same, and even grids can be organized in a 2D or 3D fashion.
+
+At a less abstract level, the SIMD paradigm happens between groups of 32 threads, regardless of the block or grid size. A set of 32 contiguous threads is a warp. When a kernel is launched its blocks are assigned to an entity called Streaming Multiprocessor (SM). A SM has one or more schedulers which map logical warps to group of 32 CUDA cores (also called streaming processors (SP)). Each thread in a warp has a specific program counter, so it can executes whatever instruction it wants. On the other hand each warp must execute the same instruction at a time, so it is important that threads within a single warp all execute the same instruction. If this doesn't happen, threads are divergent. Divergent threads within a warp cannot execute concurrently, so divergence avoidance is a key aspect in GPU programming.
+
+Obviously more warps execute concurrently on the same or on different SM.
+
+#### Memory model
+Another fundamental aspect of CUDA is the memory hierarchy. Since different kind of memories has read/write throughput that differs by orders of magnitude, organize data in an optimized way is key.
+
+##### Global memory
+Global memory is the slowest but most capacious memory. When allocating or copying data from CPU to GPU, it ends up in global memory. Each time a kernel tries to read or write something to global memory, a set of 128 contiguous bytes is read/written, regardless of the actual size of the read/write. It is thus important to try to coalesce memory accesses and to keep memory aligned to 128 bytes. Indeed, if data to be read/written is straddling two groups of 128 bytes, more than one transaction is needed, even though the requested data is less than 128 bytes long. Global memory is cached, and it is possible to specify certain segments to be cached more or less aggressively. It is persistent across different kernel invocations.
+
+##### Constant memory
+Constant memory resides on the same chip as global memory, but it is cached more aggressively on an ad-hoc constant cache. As the name suggest constant memory is read only.
+
+##### L2 cache
+L2 cache is the slowest cache available, but it is way faster than global memory. It isn't persistent across different kernel invocations.
+
+##### L1 cache
+L1 cache is an on chip cache, and it is the fastest cache available. L1 cache is placed on SM, so each block shares the L1 cache.  It isn't persistent across different kernel invocations.
+
+##### Shared memory
+Shared memory resides on the L1 cache. Indeed L1 cache can be customized to host 1/3 of L1 automatic cache and 2/3 of shared memory and vice-versa. Shared memory is considered a manual L1 cache. A key aspect of managing shared memory is to avoid bank conflicts. Shared memory is organized in 32 banks. A bank is a memory area that holds 4 byte words. If different threads in the same warp try to access different words on the same bank, access is sequential. If they try to access different bytes belonging to the same word, or words placed on different banks, access is concurrent.
+
+![Shared memory layout](https://github.com/Lapo9/AutocorrelationCUDA/blob/multi_tau/documentation/Images/SharedMemory.png)
+
+##### Registries
+Each CUDA core has its own registries, where local variables are placed. If more local variables are instantiated than the number of registries, registry spill occurs. Data that cannot be placed on registries is thus saved on local memory.
+
+##### Local memory
+Placed on the same chip as global memory.
+
+##### Texture memory
+Global memory optimized for 2D access.
+
+
+**Memory** | **Bandwidth** | **Persistent** | **On chip** | **Peculiarities**
+---|---|---|---|---
+Global | ??? | Yes | No | Coalesced access
+Constant | ??? | Yes | No | Read only
+L2 cache | ??? | No | No |
+L1 cache | ??? | No | Yes | Shared with shared memory
+Shared | ??? | No | Yes | Bank conflicts
+Registries | ??? | No | Yes | Can spill
+Local | ??? | No | No | Expand registries
+Texture | ??? | Yes | No | Optimized for 2D access
 
 ## Conclusion
