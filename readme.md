@@ -77,7 +77,7 @@ In order to improve performance, 2 optimization routes were taken:
 * **Reverse shift:** The shift method actually doesn't moves all of the values to the right, but actually moves the logical first position of the array to the left. In order to keep track of all of the first positions, a new array is allocated. This optimization forced another improvement: since from now on we had to work with circular arrays, we must use modulo operator, which is very expensive. Luckily it can be optimized if the right-hand-side operand is a power of 2: `x % y = x & (y-1)`.
 * **Bank conflicts avoidance:** In order to use the potential of CUDA architecture fully, we arranged the arrays relative to the bin groups of each sensor "vertically", instead of "horizontally". So, after the last position of the first bin group of the first sensor, there is the first position of the first bin group of the second sensor, and not the first position of the second group of the first sensor. This way it was impossible for cells accessed concurrently to end up on the same bank.
 
-![](https://drive.google.com/file/d/1GEaT35-h1PgZGzsNqLCxzecMywaVorrX/view?usp=sharing)
+![Memory layout](https://drive.google.com/file/d/1GEaT35-h1PgZGzsNqLCxzecMywaVorrX/view?usp=sharing)
 
 
 ###### Algorithm
@@ -88,17 +88,17 @@ We then chose to create 2D CUDA blocks sized 32*8. This means that on the x coor
 Last, the choice of 32 as the size of a bin group also makes it possible to have all of the threads working on the same warp. This gains particular importance during the computation of the autocorrelation (see Computation.3.1).
 
 * **Set-up:** Each CUDA block allocates and copy only data from sensors residing on that CUDA block.
-  1. Allocate array for output and bin group multi sensor memory on shared memory.
-  2. Copy output and bin group multi sensor memory passed as inputs (from previous call to this function), from global memory to shared memory.
+1. Allocate array for output and bin group multi sensor memory on shared memory.
+2. Copy output and bin group multi sensor memory passed as inputs (from previous call to this function), from global memory to shared memory.
 * **Computation:** Loop that repeats for each value in the input array. Next steps happen for sure concurrently for data from each sensor residing on the same CUDA block.
-  1. Insert new datum from input array to bin group multi sensor memory: `insertNew(sensor, value)`.
-  2. Compute how many bin groups have to be calculated during this iteration (`T`). The first bin group is calculated on every iteration, the second one once yes and once no, the third one once every 4 iterations, and so on.
-  3. `for i < T`
-    1. Calculate autocorrelation for group `i` concurrently. Zero delay register is multiplied for each value in this bin group. This can happen concurrently because the zero delay register can be broadcasted to all of the CUDA cores within the same warp.
-    2. Add calculated autocorrelation to the corresponding cell in the output array.
-    3. Shift the `i`-th group: `shift(sensor, i)`.
+1. Insert new datum from input array to bin group multi sensor memory: `insertNew(sensor, value)`.
+2. Compute how many bin groups have to be calculated during this iteration (`T`). The first bin group is calculated on every iteration, the second one once yes and once no, the third one once every 4 iterations, and so on.
+3. `for i < T`
+  1. Calculate autocorrelation for group `i` concurrently. Zero delay register is multiplied for each value in this bin group. This can happen concurrently because the zero delay register can be broadcasted to all of the CUDA cores within the same warp.
+  2. Add calculated autocorrelation to the corresponding cell in the output array.
+  3. Shift the `i`-th group: `shift(sensor, i)`.
 * **Completion:** Happens for sure concurrently for data from each sensor on the same CUDA block.
-  1. Copy back data from shared memory to global memory
+1. Copy back data from shared memory to global memory
 
 
 
