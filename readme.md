@@ -94,9 +94,11 @@ Last, the choice of 32 as the size of a bin group also makes it possible to have
 1. Insert new datum from input array to bin group multi sensor memory: `insertNew(sensor, value)`.
 2. Compute how many bin groups have to be calculated during this iteration (`T`). The first bin group is calculated on every iteration, the second one once yes and once no, the third one once every 4 iterations, and so on.
 3. `for i < T`
-  1. Calculate autocorrelation for group `i` concurrently. Zero delay register is multiplied for each value in this bin group. This can happen concurrently because the zero delay register can be broadcasted to all of the CUDA cores within the same warp.
-  2. Add calculated autocorrelation to the corresponding cell in the output array.
-  3. Shift the `i`-th group: `shift(sensor, i)`.
+
+   1. Calculate autocorrelation for group `i` concurrently. Zero delay register is multiplied for each value in this bin group. This can happen concurrently because the zero delay register can be broadcasted to all of the CUDA cores within the same warp.
+   2. Add calculated autocorrelation to the corresponding cell in the output array.
+   3. Shift the `i`-th group: `shift(sensor, i)`.
+
 * **Completion:** Happens for sure concurrently for data from each sensor on the same CUDA block.
 1. Copy back data from shared memory to global memory
 
