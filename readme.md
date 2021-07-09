@@ -200,13 +200,13 @@ At the beginning I was looking to a project to improve my C++ knowledge, and I w
 Last I learned how to work with another person and not alone, and this is probably the most valuable teaching I got. For this reason I'd like to say thank you to Gianpaolo Cugola, who has always been really helpful and treated me as a coworker more than as his student.
 
 
-[1]: https://drive.google.com/file/d/140wsqFLeQ79M54LgsVIl2tI88zjLUsfH/view?usp=sharing
+[1]: https://autocorrelationcuda.neocities.org/non_doxygen/PhD_Gong_Sixia.pdf
 [2]: https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html
 [3]: https://aip.scitation.org/doi/full/10.1063/1.2721116
 [4]: https://arxiv.org/pdf/1804.06826.pdf
 [5]: https://en.wikipedia.org/wiki/Autocorrelation
 [6]: https://www.desmos.com/calculator/q4hnqeab6n?lang=it
-[7]: ADD_DOXYGEN
+[7]: https://autocorrelationcuda.neocities.org/index.html
 [8]: https://www.putty.org/
 [9]: http://www.straightrunning.com/XmingNotes/
 [10]: https://github.com/Lapo9/AutocorrelationCUDA/blob/1c79edcd8c3ba3c14ac7fc10030f4a51cba21f7f/documentation/Autocorrelation_calculator.xlsx
