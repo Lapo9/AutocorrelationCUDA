@@ -7,7 +7,7 @@
 _The goal of the project was to write a software algorithm to calculate the autocorrelation function extremely efficiently._
 
 ### Background
-Fluorescence correlation spectroscopy (FSC) is a technique used by scientists to study the behavior of biomolecules. The main advantage of this kind of analysis is to be able to monitor the experiment in real-time. The main disadvantage is the same. Indeed, in order to collect and process data as the experiment goes on, using highly specialized hardware components is mandatory. This significantly raises the costs to conduct the experiments, denying to many non-commercial scientific hubs the possibility to contribute to scientific progress, and to form new professionals.
+[Fluorescence correlation spectroscopy (FSC)][1] is a technique used by scientists to study the behavior of biomolecules. The main advantage of this kind of analysis is to be able to monitor the experiment in real-time. The main disadvantage is the same. Indeed, in order to collect and process data as the experiment goes on, using highly specialized hardware components is mandatory. This significantly raises the costs to conduct the experiments, denying to many non-commercial scientific hubs the possibility to contribute to scientific progress, and to form new professionals.
 
 The progress in commercial hardware that took place during the last decade, led many software developers and scientists to start thinking about a different solution: implement the well known compute-intense algorithms, which used to run on dedicated hardware, as software. This not only allowed a faster distribution of the new iterations of the tools involved in scientific analysis, but also did cut down the costs to perform the experiments. First and foremost, a commercial piece of hardware is way cheaper than a custom ASIC or FPGA. Second, a CPU or GPU is less specialized than an integrated circuit, and it can be used for a wide range of studies.
 
@@ -23,9 +23,11 @@ The set-up for a FSC experiment includes these components:
 
 Our interest resides on the server, so on the data processing.
 
-The mathematical tool used to process data is the autocorrelation function, in particular in its discrete form. Simply put, the autocorrelation is a function that correlates a given input to itself. In a more formal way, given a signal `y(t)`, autocorrelation can be defined as: `A(lag) = summation[n in N](y(n) * y(n-lag))`
+The mathematical tool used to process data is the [autocorrelation][5] function, in particular in its discrete form. Simply put, the autocorrelation is a function that correlates a given input to itself. In a more formal way, given a signal `y(t)`, autocorrelation can be defined as: `A(lag) = summation[n in N](y(n) * y(n-lag))`
 
 So a big value at a specific lag (let's call it `L`) means that the signal `y(t)` tends to be periodic, and has `L` as period. For example, the autocorrelation of `sin(x)` would yield a maximum at `2pi` and its multiples. The autocorrelation tells us how much "periodic" a function is at a given "period". The periodicity of the data collected by the matrix provides valuable information to the scientists who run the experiment.
+
+[_Visualization tool_][6]
 
 #### Target
 Thanks to the information given us by Ivan, the responsible of the FSC experiment at Politecnico di Milano, we made this assumptions:
@@ -41,7 +43,7 @@ The first approach to write the algorithm was the trivial one: we tried to calcu
 At this point it was clear that the approach was wrong, so we decided to look for a different way to calculate the autocorrelation of a discrete signal.
 
 #### Multi-tau approach
-After some research, we found out that it was possible to calculate an approximative form of the autocorrelation using a multi-tau approach. The fundamental drawback of this technique is that it calculates the by-definition autocorrelation only for lag values smaller than an arbitrary threshold. Then it calculates an approximate form of the autocorrelation, and the higher the lag value is, the less precise the corresponding autocorrelation will be.
+[After some research][3], we found out that it was possible to calculate an approximative form of the autocorrelation using a multi-tau approach. The fundamental drawback of this technique is that it calculates the by-definition autocorrelation only for lag values smaller than an arbitrary threshold. Then it calculates an approximate form of the autocorrelation, and the higher the lag value is, the less precise the corresponding autocorrelation will be.
 
 The choice of the threshold is critical, since a small threshold guarantees an high throughput, but an higher threshold ensures a more accurate output. Ideally, choosing a threshold tending to infinity leads to an algorithm equivalent to the naive one.
 
@@ -108,7 +110,7 @@ Last, the choice of 32 as the size of a bin group also makes it possible to have
 _Nvidia CUDA library, C++_
 
 ### Nvidia CUDA library
-In order to program on the GPU we decided to use the library provided by Nvidia: CUDA. CUDA is exposed through a C API, and only works on Nvidia devices. We chose CUDA because the physical machine used for the experiment at Politecnico mounts a Titan X (Pascal).
+In order to program on the GPU we decided to use the library provided by Nvidia: [CUDA][2]. CUDA is exposed through a C API, and only works on Nvidia devices. We chose CUDA because the physical machine used for the experiment at Politecnico mounts a Titan X (Pascal).
 
 GPU programming, as mentioned before, has a different paradigm compared to standard CPU programming. These are the most important concepts that differentiate the two.
 
@@ -153,14 +155,14 @@ Placed on the same chip as global memory.
 Global memory optimized for 2D access.
 
 
-**Memory** | **Bandwidth [3]** | **Persistent** | **On chip** | **Peculiarities**
+**Memory** | **[Bandwidth][4]** | **Persistent** | **On chip** | **Peculiarities**
 ---|---|---|---|---
 Global | 510 GB/s | Yes | No | Coalesced access
 Constant | 510 GB/s | Yes | No | Read only
 L2 cache | 1624 GB/s | No | No |
 L1 cache | 7700 GB/s | No | Yes | Shared with shared memory
 Shared | 7700 GB/s | No | Yes | Bank conflicts
-Registries | ??? | No | Yes | Can spill
+Registries | - | No | Yes | Can spill
 Local | 510 GB/s | No | No | Expand registries
 Texture | 510 GB/s | Yes | No | Optimized for 2D access
 
@@ -170,9 +172,17 @@ In order to study the behaviour of the algorithm and its performance, we used th
 * **Global efficiency:** As mentioned before, global memory access are coalesced. Global efficiency measures the ratio of requested bytes on read/written bytes. We got 99% global read efficiency, but only 29% global store efficiency. On the other hand almost 230000 read transactions were requested, and only 21000 store, so the low store global efficiency doesn't affect performance severely, but it is for sure improvable.
 * **Warp efficiency:** Average ratio between the active threads in a warp over the maximum active threads in a warp (32). It basically measures divergence. We got 77% efficiency, which cannot be improved due to the fact that some operations must be executed only a smaller number of times. Indeed on one block we have 256 threads, which all run concurrently during the actual autocorrelation computation phase, but only 8 threads are responsible to insert the new value into the bin group multi sensor memory.
 
-Since the Titan X
+Since the Titan X was installed on a remote machine, in order to use the profiler on it we had to use SSH to access the remote host with X11 forwarding to get the nvvp GUI. To achieve this from the Windows 10 machine I was developing on, I had to use [PuTTY][8] and [Xming][9].
 
 ## Conclusion
 
 ## References
-[3]: https://arxiv.org/pdf/1804.06826.pdf
+[1]: https://drive.google.com/file/d/140wsqFLeQ79M54LgsVIl2tI88zjLUsfH/view?usp=sharing
+[2]: https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html
+[3]: https://aip.scitation.org/doi/full/10.1063/1.2721116
+[4]: https://arxiv.org/pdf/1804.06826.pdf
+[5]: https://en.wikipedia.org/wiki/Autocorrelation
+[6]: https://www.desmos.com/calculator/q4hnqeab6n?lang=it
+[7]: ADD_DOXYGEN
+[8]: https://www.putty.org/
+[9]: http://www.straightrunning.com/XmingNotes/
