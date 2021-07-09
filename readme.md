@@ -3,19 +3,16 @@
 
 **Supervisor:** Gianpaolo Cugola
 
-## Objectives
-_The goal of the project was to write a software algorithm to calculate the autocorrelation function extremely efficiently._
-
-### Background
+## Background
 [Fluorescence correlation spectroscopy (FSC)][1] is a technique used by scientists to study the behavior of biomolecules. The main advantage of this kind of analysis is to be able to monitor the experiment in real-time. The main disadvantage is the same. Indeed, in order to collect and process data as the experiment goes on, using highly specialized hardware components is mandatory. This significantly raises the costs to conduct the experiments, denying to many non-commercial scientific hubs the possibility to contribute to scientific progress, and to form new professionals.
 
 The progress in commercial hardware that took place during the last decade, led many software developers and scientists to start thinking about a different solution: implement the well known compute-intense algorithms, which used to run on dedicated hardware, as software. This not only allowed a faster distribution of the new iterations of the tools involved in scientific analysis, but also did cut down the costs to perform the experiments. First and foremost, a commercial piece of hardware is way cheaper than a custom ASIC or FPGA. Second, a CPU or GPU is less specialized than an integrated circuit, and it can be used for a wide range of studies.
 
 In particular, GPUs played the most important role in the regard of the transition from high-cost highly specialized hardware to low-cost generic software. Indeed GPUs are highly parallel pieces of hardware, so it is possible to analyze huge amount of data concurrently, ensuring high throughput, which is key in several scientific experiments, such as FSC.
 
-On the other hand GPU programming is not straight forward as CPU programming, and, until recent, it wasn't open to everyone. The main pitfall of GPU programming lies in the same concept that makes GPUs suitable for scientific purposes: parallelism. The great number of cores a GPU exposes, makes most of the common programming paradigms amiss, and forces the developer to think differently. Memory layout and management becomes a key aspect, and the flow of the code must be optimized to avoid divergent execution (namely, avoid if(s)). These aspects will be analyzed soon.
+On the other hand GPU programming is not as straight forward as CPU programming, and, until recent, it wasn't open to everyone. The main pitfall of GPU programming lies in the same concept that makes GPUs suitable for scientific purposes: parallelism. The great number of cores a GPU exposes, makes most of the common programming paradigms amiss, and forces the developer to think differently. Memory layout and management becomes a key aspect, and the flow of the code must be optimized to avoid divergent execution (namely, avoid if(s)). These aspects will be analyzed soon.
 
-### The experiment
+## The experiment
 The set-up for a FSC experiment includes these components:
 * A matrix of photosensors. In our case we assumed a square matrix of 2^n photosensors.
 * A server, where to analyze data provided by the matrix.
@@ -29,7 +26,7 @@ So a big value at a specific lag (let's call it `L`) means that the signal `y(t)
 
 [_Visualization tool_][6]
 
-#### Target
+### Target
 Thanks to the information given us by Ivan, the responsible of the FSC experiment at Politecnico di Milano, we made this assumptions:
 * The matrix is made up of 32x32 photosensors, for a total of 1024 photosensors to process in parallel.
 * The frequency of each photosensor is 80MHz, so the period is 12.5 nanoseconds.
@@ -37,12 +34,12 @@ Thanks to the information given us by Ivan, the responsible of the FSC experimen
 * For scientific purposes it is needed to calculate the autocorrelation up to lag 10000.
 
 
-#### First approach
-The first approach to write the algorithm was the trivial one: we tried to calculate `y(n) * y(n-lag)` for each instant in time for each sensor. The pro of this approach is that the code is really simple and elegant, the con is that GPUs are fast, but not this fast. Indeed, despite the fact that we asked the GPU to perform a series of simple additions and multiplications, the throughput of the GPU wasn't high enough, and we ended up processing data 3000 times slower than our target. In numbers, we set-up an environment to calculate the autocorrelation up to lag 10000 of a signal made up of 625000 values. We expected the program to take 1 second to execute. It took 3 seconds, and it analyzed only data from 1 sensor. `3 * 1024` times slower that our goal.
+### First approach
+The first approach to write the algorithm was the trivial one: we tried to calculate `y(n) * y(n-lag)` for each instant in time for each sensor. The pro of this approach is that the code is really simple and elegant, the con is that GPUs are fast, but not this fast. Indeed, despite the fact that we asked the GPU to perform a series of simple additions and multiplications, the throughput of the GPU wasn't high enough, and we ended up processing data 3000 times slower than our target. In numbers, we set-up an environment to calculate the autocorrelation up to lag 10000 of a signal made up of 625000 values. We expected the program to take 1 second to execute for 1024 sensors (`80MHz / 128`). It took 3 seconds, and it analyzed only data from 1 sensor. `3 * 1024` times slower that our goal.
 
 At this point it was clear that the approach was wrong, so we decided to look for a different way to calculate the autocorrelation of a discrete signal.
 
-#### Multi-tau approach
+### Multi-tau approach
 [After some research][3], we found out that it was possible to calculate an approximative form of the autocorrelation using a multi-tau approach. The fundamental drawback of this technique is that it calculates the by-definition autocorrelation only for lag values smaller than an arbitrary threshold. Then it calculates an approximate form of the autocorrelation, and the higher the lag value is, the less precise the corresponding autocorrelation will be.
 
 The choice of the threshold is critical, since a small threshold guarantees an high throughput, but an higher threshold ensures a more accurate output. Ideally, choosing a threshold tending to infinity leads to an algorithm equivalent to the naive one.
@@ -56,10 +53,10 @@ Th ~ 3Th | 3200ns | 2
 3Th ~ 7Th | 6400ns | 4
 7Th ~ 15Th | 12800ns | 8
 
-##### Multi-tau algorithm
+#### Multi-tau algorithm
 In order to implement the formal algorithm in an efficient way, we had to create an ad-hoc data structure.
 
-###### Bin group multi sensor memory
+##### Bin group multi sensor memory
 This data structure has the responsibility to hold data while being processed, and to maintain this data following the multi-tau rules. So it is its responsibility to coalesce the bins based on the threshold.
 
 ![Memory layout](https://github.com/Lapo9/AutocorrelationCUDA/blob/multi_tau/documentation/Images/BinGroup.png)
@@ -83,7 +80,7 @@ In order to improve performance, 2 optimization routes were taken:
 ![Memory layout](https://github.com/Lapo9/AutocorrelationCUDA/blob/multi_tau/documentation/Images/BinGroupMultiSensorMemory.png)
 
 
-###### Algorithm
+##### Algorithm
 The algorithm was thought to maximize the number of operations to run concurrently. Since, in order to compute autocorrelation for bin group `x`, bin group `x-1` must be finished, we ended up to parallelize on the computation of autocorrelation of values on the same bin group. We chose the critical size of the bin group being 32, which turned out to be the right compromise between high throughput and output accuracy. Since we were bound to 1024 sensors, it means that 32768 multiplications and additions could run in parallel. This is way more than the number of CUDA cores in any of the most recent Nvidia GPUs, so this level of concurrency alone maximized the occupancy of any modern GPU.
 
 We then chose to create 2D CUDA blocks sized 32*8. This means that on the x coordinate we have CUDA cores which work concurrently on the calculation of different lag values for the same sensor. In the y coordinate we could handle 8 sensors per block. The size of the CUDA block is then 256, which turned out to maximize the number of registers and shared memory available on each block.
@@ -174,9 +171,35 @@ In order to study the behaviour of the algorithm and its performance, we used th
 
 Since the Titan X was installed on a remote machine, in order to use the profiler on it we had to use SSH to access the remote host with X11 forwarding to get the nvvp GUI. To achieve this from the Windows 10 machine I was developing on, I had to use [PuTTY][8] and [Xming][9].
 
-## Conclusion
+### Excel
+In order to verify that the results yield by the algorithm were correct, we created a file in Microsoft Excel that computes the autocorrelation following the multi-tau approach. In the Excel file only a simplified version of the algorithm is present, which is only able to calculate the autocorrelation for 3 bin groups of 32 values for one single sensor. This is because we only need to verify the general correctness of the algorithm, and not the edge cases, that were checked manually. The file can be found [on the Github repository][10].
 
-## References
+## Conclusion
+At the end of the development the goal was reached. Our final test is structured like this:
+* The input is previously randomly generated and saved in a vector.
+* The input is made up of 100 values for each sensor for each execution of the kernel.
+* The kernel is called 1000 times.
+* There are 10 bin groups for each sensor.
+* A low overhead timer object measures the duration of each kernel execution.
+* Code was compiled with [this makefile][11].
+
+The results were even better than the target. The average execution time of the kernel was 150 microseconds. This means that in 1 second we are able to compute the autocorrelation for more than 666000 instants for each sensor (`100 * (1 / 150us)`), which is more than the 625000 that was the goal, as discussed before.
+
+### Improvements
+We think it is still possible both to go faster and improve the code.
+
+To increase the performance it is possible to study more deeply the access pattern both to the global and to the local memory. Especially the store instructions to global memory can probably be coalesced better. Another improvement would be to put the input data into the constant memory, even though it wouldn't reduce the execution time as dramatically as the previous optimization.
+
+Concerning the C++ code, it is possible to work on the flexibility. Right now the parameters of the algorithm, such as the number of sensors or the number of bin groups, are hard coded into the Definitions.h file. This is because it is fundamental that these values are known at compilation time, indeed they are all coded as `constexpr`. It is probably possible to use template metaprogramming to increase the flexibility of the code.
+
+### Final personal thoughts
+By a personal point of view, I can say I'm really satisfied with this project.
+
+At the beginning I was looking to a project to improve my C++ knowledge, and I wasn't so sure this project would have helped me. But as time went I started appreciating what I was doing more and more, both because I was indeed improving my C++ experience, and because I was learning a completely new programming paradigm, which will be for sure more common in the future, given the tendency to use more and more parallel programming techniques. I also enjoyed learning about CUDA architecture, and programming towards it, something I've never done before, since I've always programmed non performance critical code. It taught me a lot about memory and branch management, and I was very surprised to know that you can write elegant code even in performance critical sections, and not hacks.
+
+Last I learned how to work with another person and not alone, and this is probably the most valuable teaching I got. For this reason I'd like to say thank you to Gianpaolo Cugola, who has always been really helpful and treated me as a coworker more than as his student.
+
+
 [1]: https://drive.google.com/file/d/140wsqFLeQ79M54LgsVIl2tI88zjLUsfH/view?usp=sharing
 [2]: https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html
 [3]: https://aip.scitation.org/doi/full/10.1063/1.2721116
@@ -186,3 +209,5 @@ Since the Titan X was installed on a remote machine, in order to use the profile
 [7]: ADD_DOXYGEN
 [8]: https://www.putty.org/
 [9]: http://www.straightrunning.com/XmingNotes/
+[10]: https://github.com/Lapo9/AutocorrelationCUDA/blob/1c79edcd8c3ba3c14ac7fc10030f4a51cba21f7f/documentation/Autocorrelation_calculator.xlsx
+[11]: https://github.com/Lapo9/AutocorrelationCUDA/blob/1c79edcd8c3ba3c14ac7fc10030f4a51cba21f7f/Makefile
