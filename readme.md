@@ -75,7 +75,7 @@ The interface of the structure is the following:
 * `getZeroDelay(sensor, group)`
 
 In order to improve performance, 2 optimization routes were taken:
-* **Reverse shift:** The shift method actually doesn't moves all of the values to the right, but actually moves the logical first position of the array to the left. In order to keep track of all of the first positions, a new array is allocated. This optimization forced another improvement: since from now on we had to work with circular arrays, we must use modulo operator, which is very expensive. Luckily it can be optimized if the right-hand-side operand is a power of 2: `x % y = x & (y-1)`.
+* **Reverse shift:** The shift method actually doesn't move all of the values to the right, but actually moves the logical first position of the array to the left. In order to keep track of all of the first positions, a new array is allocated. This optimization forced another improvement: since from now on we had to work with circular arrays, we must use modulo operator, which is very expensive. Luckily it can be optimized if the right-hand-side operand is a power of 2: `x % y = x & (y-1)`.
 * **Bank conflicts avoidance:** In order to use the potential of CUDA architecture fully, we arranged the arrays relative to the bin groups of each sensor "vertically", instead of "horizontally". So, after the last position of the first bin group of the first sensor, there is the first position of the first bin group of the second sensor, and not the first position of the second group of the first sensor. This way it was impossible for cells accessed concurrently to end up on the same bank.
 
 ![Memory layout](https://github.com/Lapo9/AutocorrelationCUDA/blob/multi_tau/documentation/Images/BinGroupMultiSensorMemory.png)
@@ -93,7 +93,7 @@ Last, the choice of 32 as the size of a bin group also makes it possible to have
 2. Copy output and bin group multi sensor memory passed as inputs (from previous call to this function), from global memory to shared memory.
 * **Computation:** Loop that repeats for each value in the input array. Next steps happen for sure concurrently for data from each sensor residing on the same CUDA block.
 1. Insert new datum from input array to bin group multi sensor memory: `insertNew(sensor, value)`.
-2. Compute how many bin groups have to be calculated during this iteration (`T`). The first bin group is calculated on every iteration, the second one once yes and once no, the third one once every 4 iterations, and so on.
+2. Compute how many bin groups have to be calculated during this iteration (`T`). The first bin group is calculated on every iteration, the second one once yes and once no, the third one once every 4 iterations, and so on. This happens because a successive bin group has half the resolution of the previous one.
 3. `for i < T`
 
    1. Calculate autocorrelation for group `i` concurrently. Zero delay register is multiplied for each value in this bin group. This can happen concurrently because the zero delay register can be broadcasted to all of the CUDA cores within the same warp.
@@ -119,7 +119,7 @@ On CUDA architecture each thread is executed by a CUDA core. Moreover threads ca
 
 Even threads block can be organized in a structure called grid. A grid is a set of thread blocks, just like a thread block is a set of threads. The structure is the same, and even grids can be organized in a 2D or 3D fashion.
 
-At a less abstract level, the SIMD paradigm happens between groups of 32 threads, regardless of the block or grid size. A set of 32 contiguous threads is a warp. When a kernel is launched its blocks are assigned to an entity called Streaming Multiprocessor (SM). A SM has one or more schedulers which map logical warps to group of 32 CUDA cores (also called streaming processors (SP)). Each thread in a warp has a specific program counter, so it can executes whatever instruction it wants. On the other hand each warp must execute the same instruction at a time, so it is important that threads within a single warp all execute the same instruction. If this doesn't happen, threads are divergent. Divergent threads within a warp cannot execute concurrently, so divergence avoidance is a key aspect in GPU programming.
+At a less abstract level, the SIMD paradigm happens between groups of 32 threads, regardless of the block or grid size. A set of 32 contiguous threads is a warp. When a kernel is launched its blocks are assigned to an entity called Streaming Multiprocessor (SM). A SM has one or more schedulers which map logical warps to group of 32 CUDA cores (also called streaming processors (SP)). Each thread in a warp has a specific program counter, so it can execute whatever instruction it wants. On the other hand each thread on a warp must execute the same instruction at a time or being idle, so it is important that threads within a single warp all execute the same instruction. If this doesn't happen, threads are divergent. Divergent threads within a warp cannot execute concurrently, so divergence avoidance is a key aspect in GPU programming.
 
 Obviously more warps execute concurrently on the same or on different SM.
 
@@ -153,15 +153,26 @@ Placed on the same chip as global memory.
 Global memory optimized for 2D access.
 
 
-**Memory** | **Bandwidth** | **Persistent** | **On chip** | **Peculiarities**
+**Memory** | **Bandwidth [3]** | **Persistent** | **On chip** | **Peculiarities**
 ---|---|---|---|---
-Global | ??? | Yes | No | Coalesced access
-Constant | ??? | Yes | No | Read only
-L2 cache | ??? | No | No |
-L1 cache | ??? | No | Yes | Shared with shared memory
-Shared | ??? | No | Yes | Bank conflicts
+Global | 510 GB/s | Yes | No | Coalesced access
+Constant | 510 GB/s | Yes | No | Read only
+L2 cache | 1624 GB/s | No | No |
+L1 cache | 7700 GB/s | No | Yes | Shared with shared memory
+Shared | 7700 GB/s | No | Yes | Bank conflicts
 Registries | ??? | No | Yes | Can spill
-Local | ??? | No | No | Expand registries
-Texture | ??? | Yes | No | Optimized for 2D access
+Local | 510 GB/s | No | No | Expand registries
+Texture | 510 GB/s | Yes | No | Optimized for 2D access
+
+### CUDA profiler
+In order to study the behaviour of the algorithm and its performance, we used the Nvidia visual profiler (nvvp). The tool shows in a timeline all of the API function and kernel calls, and it allows for a very in-depth analysis of fundamental aspects of the execution. The metrics we mostly took into consideration are the following:
+* **Occupancy:** How many of the available CUDA cores are utilized on average. An high occupancy means more operations are performed concurrently, but having a 100% occupancy not always is the best way to improve performance. Indeed, in memory intensive algorithm, it is often preferred to use a big chunk of shared memory. Since shared memory resides on SM, it means that the more shared memory a block uses, the less concurrent warps can be executed, thus reducing occupancy. At the end of the day our algorithm achieves about 60% occupancy.
+* **Global efficiency:** As mentioned before, global memory access are coalesced. Global efficiency measures the ratio of requested bytes on read/written bytes. We got 99% global read efficiency, but only 29% global store efficiency. On the other hand almost 230000 read transactions were requested, and only 21000 store, so the low store global efficiency doesn't affect performance severely, but it is for sure improvable.
+* **Warp efficiency:** Average ratio between the active threads in a warp over the maximum active threads in a warp (32). It basically measures divergence. We got 77% efficiency, which cannot be improved due to the fact that some operations must be executed only a smaller number of times. Indeed on one block we have 256 threads, which all run concurrently during the actual autocorrelation computation phase, but only 8 threads are responsible to insert the new value into the bin group multi sensor memory.
+
+Since the Titan X
 
 ## Conclusion
+
+## References
+[3]: https://arxiv.org/pdf/1804.06826.pdf
