@@ -67,7 +67,7 @@ Particular attention should be paid to the zero delay registers. Since data in a
 
 Moreover the first cell of each group is called accumulator, and it is the place where 2 values from the previous bin group are summed together to obtain the correct bin size for a specific group.
 
-The interface of the structure is the following:
+The [interface][7] of the structure is the following:
 * `insertNew(sensor, value)`: Inserts the new value in the first position of the first bin group and in the first zero delay register. Moreover it adds the new value to the zero delay registers of all the remaining bin groups.
 * `shift(sensor, binGroup)`: Shifts all of the values in the specified bin group one position to the right. The value previously present in the rightmost position leaves the group, and is added to the accumulator of the next group. Accumulator and zero delay register of the group are cleared.
 * `get(sensor, group, position)`
