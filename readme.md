@@ -6,9 +6,9 @@
 ## Background
 [Fluorescence correlation spectroscopy (FSC)][1] is a technique used by scientists to study the behavior of biomolecules. The main advantage of this kind of analysis is to be able to monitor the experiment in real-time. The main disadvantage is the same. Indeed, in order to collect and process data as the experiment goes on, using highly specialized hardware components is mandatory. This significantly raises the costs to conduct the experiments, denying to many non-commercial scientific hubs the possibility to contribute to scientific progress, and to form new professionals.
 
-The progress in commercial hardware that took place during the last decade, led many software developers and scientists to start thinking about a different solution: implement the well known compute-intense algorithms, which used to run on dedicated hardware, in a software application running on a stanrd PC. This not only allowed a faster distribution of the new iterations of the tools involved in scientific analysis, but also did cut down the costs to perform the experiments. First and foremost, a standard, off-the-shelf PC is way cheaper than a custom ASIC or FPGA. Second, a PC is less specialized than an integrated circuit, and it can be used for a wide range of studies.
+The progress in commercial hardware that took place during the last decade, led many software developers and scientists to start thinking about a different solution: implement the well known compute-intense algorithms, which used to run on dedicated hardware, in a software application running on a standard PC. This not only allowed a faster distribution of the new iterations of the tools involved in scientific analysis, but also did cut down the costs to perform the experiments. First and foremost, a standard, off-the-shelf PC is way cheaper than a custom ASIC or FPGA. Second, a PC is less specialized than an integrated circuit, and it can be used for a wide range of studies.
 
-In particular, the availability of high performance, low cost GPUs and their use not only for graphics processing but for general processing (GPGPU) played the most important role in the regard of this transition from highly specialized hardware to software. Indeed GPUs are highly parallel pieces of hardware that while originally born to satisf the need of graphic processing may nowaday be used to solve more general problems. In particular, thorugh GPUs it is possible to analyze huge amount of data in parallel, ensuring high throughput, which is key in several scientific experiments, including FSC.
+In particular, the availability of high performance, low cost GPUs and their use not only for graphics processing but for general processing (GPGPU) played the most important role in the regard of this transition from highly specialized hardware to software. Indeed GPUs are highly parallel pieces of hardware that while originally born to satisfy the need of graphic processing may nowadays be used to solve more general problems. In particular, through GPUs it is possible to analyze huge amount of data in parallel, ensuring high throughput, which is key in several scientific experiments, including FSC.
 
 On the other hand GPU programming is not as straight forward as CPU programming, and, until recently, it wasn't open to everyone. The main pitfall of GPU programming lies in the same concept that makes GPUs suitable for scientific purposes: parallelism. The great number of cores a GPU exposes, makes most of the common programming paradigms amiss, and forces the developer to think differently. Memory layout and management becomes a key aspect, and the flow of code must be optimized to avoid divergent execution (namely, avoid if(s)). These aspects will be analyzed in the remainder of this document.
 
@@ -20,7 +20,7 @@ The set-up for a FSC experiment includes three components:
 
 Our interest resides on the server, so on the data processing.
 
-The mathematical tool used to process data is the [autocorrelation][5] function, in particular in its discrete form. Simply put, the autocorrelation is a function that correlates a given input to itself. In a more formal way, given a signal `y(t)`, autocorrelation can be defined as: `A(lag) = summation[n in N](y(n) * y(n-lag))`
+The mathematical tool used to process data is the [autocorrelation][5] function, in particular in its discrete form. Simply put, the autocorrelation is a function that correlates a given input to itself. In a more formal way, given a signal `y(t)`, autocorrelation can be defined as: `A(lag) = summation[n in N](y(n) * y(n ± lag))`. It is important to note that in the last factor the presence of `n-lag` is conceptually equivalent to `n+lag`.
 
 So a big value at a specific lag (let's call it `L`) means that the signal `y(t)` tends to be periodic, and has `L` as period. For example, the autocorrelation of `sin(x)` would yield a maximum at `2pi` and its multiples. The autocorrelation tells us how much "periodic" a function is at a given "period". The periodicity of the data collected by the matrix provides valuable information to the scientists who run the experiment.
 
@@ -29,7 +29,7 @@ So a big value at a specific lag (let's call it `L`) means that the signal `y(t)
 ### Target
 Thanks to the information given us by Prof. Ivan Rech, the responsible of the FSC experiment at Politecnico di Milano, we made this assumptions:
 * The matrix is made up of 32x32 photosensors, for a total of 1024 photosensors to process in parallel.
-* The frequency of the laser stimalating the raw material (and consequently the frequency photons are revealed by each photosensor) is 80MHz, so the period is 12.5 nanoseconds.
+* The frequency of the laser stimulating the raw material (and consequently the frequency photons are revealed by each photosensor) is 80MHz, so the period is 12.5 nanoseconds.
 * Each photosensor of the matrix send us how many photons are detected in 128 periods (1600 nanoseconds). So each value fits in 1 byte, since it holds a number between 0 and 128.
 * For scientific purposes it is needed to calculate the autocorrelation up to lag 10000.
 
@@ -52,6 +52,7 @@ Going a bit more into the details, as we mentioned in the matrix specifications,
 Th ~ 3Th | 3200ns | 2
 3Th ~ 7Th | 6400ns | 4
 7Th ~ 15Th | 12800ns | 8
+... | ... | ...
 
 #### Multi-tau algorithm
 In order to implement the formal algorithm in an efficient way, we had to create an ad-hoc data structure.
@@ -78,6 +79,13 @@ In order to improve performance, 2 optimization routes were taken:
 * **Bank conflicts avoidance:** In order to use the potential of CUDA architecture fully, we arranged the arrays relative to the bin groups of each sensor "vertically", instead of "horizontally". So, after the last position of the first bin group of the first sensor, there is the first position of the first bin group of the second sensor, and not the first position of the second group of the first sensor. This way it was impossible for cells accessed concurrently to end up on the same bank.
 
 ![Memory layout](https://github.com/Lapo9/AutocorrelationCUDA/blob/multi_tau/documentation/Images/BinGroupMultiSensorMemory.png)
+
+###### Actually calculated lag values formula
+Since the multi-tau approach unties the number of operations from the actual number of calculated lag values, it is important to have a formula to get how many lag values are calculated given the number of bin groups `B`, and the size of a bin group `S`: `number of lag values = summation[n: 0 -> B-1](S * 2^n)`.
+
+For example, given 10 bin groups of size 32, we have: `number of lag values = summation[n: 0 -> 9](32 * 2^n) = 32736`.
+
+This formula can be obtained by thinking about the meaning of "bin group". The first bin group has single bins, so, looking at the example, it calculates the first `32 * 1 = 32 * 2^0 = 32` lag values. The second bin group has double bins (bins with half the resolution, look at the table above), so it calculates `32 * 2 = 32 * 2^1 = 64` lag values. So with two groups we calculate `32 + 64 = 96` lag values. The third group has bins with a resolution 4 times smaller than the base one, so it computes `32 * 4 = 32 * 2^2 = 128` lag values. With 3 bin groups we calculate `32 + 64 + 128 = 224` lag values. And so on.
 
 
 ##### Algorithm
@@ -164,7 +172,7 @@ Local | 510 GB/s | No | No | Expand registries
 Texture | 510 GB/s | Yes | No | Optimized for 2D access
 
 ### CUDA profiler
-In order to study the behaviour of the algorithm and its performance, we used the Nvidia visual profiler (nvvp). The tool shows in a timeline all of the API function and kernel calls, and it allows for a very in-depth analysis of fundamental aspects of the execution. The metrics we mostly took into consideration are the following:
+In order to study the behavior of the algorithm and its performance, we used the Nvidia visual profiler (nvvp). The tool shows in a timeline all of the API function and kernel calls, and it allows for a very in-depth analysis of fundamental aspects of the execution. The metrics we mostly took into consideration are the following:
 * **Occupancy:** How many of the available CUDA cores are utilized on average. An high occupancy means more operations are performed concurrently, but having a 100% occupancy not always is the best way to improve performance. Indeed, in memory intensive algorithm, it is often preferred to use a big chunk of shared memory. Since shared memory resides on SM, it means that the more shared memory a block uses, the less concurrent warps can be executed, thus reducing occupancy. At the end of the day our algorithm achieves about 60% occupancy.
 * **Global efficiency:** As mentioned before, global memory access are coalesced. Global efficiency measures the ratio of requested bytes on read/written bytes. We got 99% global read efficiency, but only 29% global store efficiency. On the other hand almost 230000 read transactions were requested, and only 21000 store, so the low store global efficiency doesn't affect performance severely, but it is for sure improvable.
 * **Warp efficiency:** Average ratio between the active threads in a warp over the maximum active threads in a warp (32). It basically measures divergence. We got 77% efficiency, which cannot be improved due to the fact that some operations must be executed only a smaller number of times. Indeed on one block we have 256 threads, which all run concurrently during the actual autocorrelation computation phase, but only 8 threads are responsible to insert the new value into the bin group multi sensor memory.
@@ -172,14 +180,14 @@ In order to study the behaviour of the algorithm and its performance, we used th
 Since the Titan X was installed on a remote machine, in order to use the profiler on it we had to use SSH to access the remote host with X11 forwarding to get the nvvp GUI. To achieve this from the Windows 10 machine I was developing on, I had to use [PuTTY][8] and [Xming][9].
 
 ### Excel
-In order to verify that the results yield by the algorithm were correct, we created a file in Microsoft Excel that computes the autocorrelation following the multi-tau approach. In the Excel file only a simplified version of the algorithm is present, which is only able to calculate the autocorrelation for 3 bin groups of 32 values for one single sensor. This is because we only need to verify the general correctness of the algorithm, and not the edge cases, that were checked manually. The file can be found [on the Github repository][10].
+In order to verify that the results yield by the algorithm were correct, we created a file in Microsoft Excel that computes the autocorrelation following the multi-tau approach. In the Excel file only a simplified version of the algorithm is present, which is only able to calculate the autocorrelation for 3 bin groups of 32 values for one single sensor. This is because we only need to verify the general correctness of the algorithm, and not the edge cases, that were checked manually. The file can be found [on the GitHub repository][10].
 
 ## Conclusion
 At the end of the development the goal was reached. Our final test is structured like this:
 * The input is randomly generated and saved in a vector (notice that the actual values that compose our input do not impact the performance of the algorithm, so it is acceptable to use random values to measure performance).
 * The input is made up of 100 values for each sensor for each execution of the kernel.
 * The kernel is called 1000 times.
-* There are 10 bin groups for each sensor.
+* There are 10 bin groups for each sensor. This means that we calculated 32736 lag values, three times the minimum requirement of 10000. For calculation look at "Actually calculated lag values formula".
 * A low overhead timer object measures the duration of each kernel execution.
 * Code was compiled with [this makefile][11].
 
@@ -197,7 +205,7 @@ By a personal point of view, I can say I'm really satisfied with this project.
 
 At the beginning I was looking to a project to improve my C++ knowledge, and I wasn't so sure this project would have helped me. But as time went I started appreciating what I was doing more and more, both because I was indeed improving my C++ experience, and because I was learning a completely new programming paradigm, which will be for sure more common in the future, given the tendency to use more and more parallel programming techniques. I also enjoyed learning about CUDA architecture, and programming towards it, something I've never done before, since I've always programmed non performance-critical code. It taught me a lot about memory and branch management, and I was very surprised to know that you can write elegant code even in performance critical sections, and not hacks.
 
-Last I learned how to work with another person and not alone, and this is probably the most valuable teaching I got. For this reason I'd like to say thank you to prof. Gianpaolo Cugola, who has always been really helpful and treated me as a coworker more than as his student.
+Last I learned how to work with another person and not alone, and this is probably the most valuable teaching I got. For this reason I'd like to say thank you to Prof. Gianpaolo Cugola, who has always been really helpful and treated me as a coworker more than as his student.
 
 
 [1]: https://autocorrelationcuda.neocities.org/non_doxygen/PhD_Gong_Sixia.pdf
