@@ -6,16 +6,16 @@
 ## Background
 [Fluorescence correlation spectroscopy (FSC)][1] is a technique used by scientists to study the behavior of biomolecules. The main advantage of this kind of analysis is to be able to monitor the experiment in real-time. The main disadvantage is the same. Indeed, in order to collect and process data as the experiment goes on, using highly specialized hardware components is mandatory. This significantly raises the costs to conduct the experiments, denying to many non-commercial scientific hubs the possibility to contribute to scientific progress, and to form new professionals.
 
-The progress in commercial hardware that took place during the last decade, led many software developers and scientists to start thinking about a different solution: implement the well known compute-intense algorithms, which used to run on dedicated hardware, as software. This not only allowed a faster distribution of the new iterations of the tools involved in scientific analysis, but also did cut down the costs to perform the experiments. First and foremost, a commercial piece of hardware is way cheaper than a custom ASIC or FPGA. Second, a CPU or GPU is less specialized than an integrated circuit, and it can be used for a wide range of studies.
+The progress in commercial hardware that took place during the last decade, led many software developers and scientists to start thinking about a different solution: implement the well known compute-intense algorithms, which used to run on dedicated hardware, in a software application running on a stanrd PC. This not only allowed a faster distribution of the new iterations of the tools involved in scientific analysis, but also did cut down the costs to perform the experiments. First and foremost, a standard, off-the-shelf PC is way cheaper than a custom ASIC or FPGA. Second, a PC is less specialized than an integrated circuit, and it can be used for a wide range of studies.
 
-In particular, GPUs played the most important role in the regard of the transition from high-cost highly specialized hardware to low-cost generic software. Indeed GPUs are highly parallel pieces of hardware, so it is possible to analyze huge amount of data concurrently, ensuring high throughput, which is key in several scientific experiments, such as FSC.
+In particular, the availability of high performance, low cost GPUs and their use not only for graphics processing but for general processing (GPGPU) played the most important role in the regard of this transition from highly specialized hardware to software. Indeed GPUs are highly parallel pieces of hardware that while originally born to satisf the need of graphic processing may nowaday be used to solve more general problems. In particular, thorugh GPUs it is possible to analyze huge amount of data in parallel, ensuring high throughput, which is key in several scientific experiments, including FSC.
 
-On the other hand GPU programming is not as straight forward as CPU programming, and, until recent, it wasn't open to everyone. The main pitfall of GPU programming lies in the same concept that makes GPUs suitable for scientific purposes: parallelism. The great number of cores a GPU exposes, makes most of the common programming paradigms amiss, and forces the developer to think differently. Memory layout and management becomes a key aspect, and the flow of the code must be optimized to avoid divergent execution (namely, avoid if(s)). These aspects will be analyzed soon.
+On the other hand GPU programming is not as straight forward as CPU programming, and, until recently, it wasn't open to everyone. The main pitfall of GPU programming lies in the same concept that makes GPUs suitable for scientific purposes: parallelism. The great number of cores a GPU exposes, makes most of the common programming paradigms amiss, and forces the developer to think differently. Memory layout and management becomes a key aspect, and the flow of code must be optimized to avoid divergent execution (namely, avoid if(s)). These aspects will be analyzed in the remainder of this document.
 
 ## The experiment
-The set-up for a FSC experiment includes these components:
-* A matrix of photosensors. In our case we assumed a square matrix of 2^n photosensors.
-* A server, where to analyze data provided by the matrix.
+The set-up for a FSC experiment includes three components:
+* A matrix of photosensors embedded in a device capable of stimulating raw material with a laser and detecting photons emitted by the material. In our case we assumed a square matrix of 2^n photosensors.
+* A server, connected to the device above, where to analyze data provided by the matrix of photosensors.
 * A client, where to show the processed data.
 
 Our interest resides on the server, so on the data processing.
@@ -27,9 +27,9 @@ So a big value at a specific lag (let's call it `L`) means that the signal `y(t)
 [_Visualization tool_][6]
 
 ### Target
-Thanks to the information given us by Ivan, the responsible of the FSC experiment at Politecnico di Milano, we made this assumptions:
+Thanks to the information given us by Prof. Ivan Rech, the responsible of the FSC experiment at Politecnico di Milano, we made this assumptions:
 * The matrix is made up of 32x32 photosensors, for a total of 1024 photosensors to process in parallel.
-* The frequency of each photosensor is 80MHz, so the period is 12.5 nanoseconds.
+* The frequency of the laser stimalating the raw material (and consequently the frequency photons are revealed by each photosensor) is 80MHz, so the period is 12.5 nanoseconds.
 * Each photosensor of the matrix send us how many photons are detected in 128 periods (1600 nanoseconds). So each value fits in 1 byte, since it holds a number between 0 and 128.
 * For scientific purposes it is needed to calculate the autocorrelation up to lag 10000.
 
@@ -44,7 +44,7 @@ At this point it was clear that the approach was wrong, so we decided to look fo
 
 The choice of the threshold is critical, since a small threshold guarantees an high throughput, but an higher threshold ensures a more accurate output. Ideally, choosing a threshold tending to infinity leads to an algorithm equivalent to the naive one.
 
-Going a bit more into the details, as we mentioned in the matrix specifications, data is sent to the server as 8 bits integers, each containing the number of photons detected in a 1600ns period. The algorithm calculates the output as `y(n) * y(n-lag)` as long as `lag` is less than the chosen threshold (`Th`). For lag values higher than `Th` and smaller than `Th + 2Th`, the algorithm coalesce 2 periods into a single one, namely creating a single 3200ns period, which contains the sum of the values contained in the original periods. While autocorrelating lag values in the interval `Th < lag < 3Th`, the program uses these longer periods (also called bins), consequently being able to calculate the autocorrelation for lag values in a `3Th - Th = 2Th` interval in the same time it took to compute the by-definition autocorrelation for the first `Th` lag values, doubling the throughput. The drawback resides in the resolution of the output. Then the process repeats for lag values in the interval `3Th < lag < 3Th + 4Th`, by coalescing, each time, 2 3200ns bins in a single 6400ns bin, and so on.
+Going a bit more into the details, as we mentioned in the matrix specifications, data is sent to the server as 8 bits integers, each containing the number of photons detected in a 1600ns period. The algorithm calculates the output as `y(n) * y(n-lag)` as long as `lag` is less than the chosen threshold (`Th`). For lag values higher than `Th` and smaller than `Th + 2Th`, the algorithm coalesce 2 periods into a single one, namely creating a single 3200ns period, which contains the sum of the values contained in the original periods. While autocorrelating lag values in the interval `Th < lag < 3Th`, the program uses these longer periods (also called bins), consequently being able to calculate the autocorrelation for lag values in a `3Th - Th = 2Th` interval in the same time it took to compute the by-definition autocorrelation for the first `Th` lag values, doubling the throughput (the drawback resides in the resolution of the output). Then the process repeats for lag values in the interval `3Th < lag < 3Th + 4Th`, by coalescing, each time, 2 3200ns bins in a single 6400ns bin, and so on.
 
 **Lag interval** | **Bin resolution** | **Coalesced bins**
 ---|---|---
@@ -176,28 +176,28 @@ In order to verify that the results yield by the algorithm were correct, we crea
 
 ## Conclusion
 At the end of the development the goal was reached. Our final test is structured like this:
-* The input is previously randomly generated and saved in a vector.
+* The input is randomly generated and saved in a vector (notice that the actual values that compose our input do not impact the performance of the algorithm, so it is acceptable to use random values to measure performance).
 * The input is made up of 100 values for each sensor for each execution of the kernel.
 * The kernel is called 1000 times.
 * There are 10 bin groups for each sensor.
 * A low overhead timer object measures the duration of each kernel execution.
 * Code was compiled with [this makefile][11].
 
-The results were even better than the target. The average execution time of the kernel was 150 microseconds. This means that in 1 second we are able to compute the autocorrelation for more than 666000 instants for each sensor (`100 * (1 / 150us)`), which is more than the 625000 that was the goal, as discussed before.
+The results were even better than the target. The average execution time of the kernel was 150 microseconds. This means that in 1 second we are able to compute the autocorrelation for more than 666000 instants for each sensor (`100 * (1 / 150us)`), which is more than the 625000 that was our original goal, as discussed before.
 
 ### Improvements
 We think it is still possible both to go faster and improve the code.
 
 To increase the performance it is possible to study more deeply the access pattern both to the global and to the local memory. Especially the store instructions to global memory can probably be coalesced better. Another improvement would be to put the input data into the constant memory, even though it wouldn't reduce the execution time as dramatically as the previous optimization.
 
-Concerning the C++ code, it is possible to work on the flexibility. Right now the parameters of the algorithm, such as the number of sensors or the number of bin groups, are hard coded into the Definitions.h file. This is because it is fundamental that these values are known at compilation time, indeed they are all coded as `constexpr`. It is probably possible to use template metaprogramming to increase the flexibility of the code.
+Concerning the C++ code, it is possible to work on its flexibility. Right now the parameters of the algorithm, such as the number of sensors or the number of bin groups, are hard coded into the Definitions.h file. This is because it is fundamental that these values are known at compilation time, indeed they are all coded as `constexpr`. It is probably possible to use template metaprogramming to increase flexibility and generality of code.
 
 ### Final personal thoughts
 By a personal point of view, I can say I'm really satisfied with this project.
 
-At the beginning I was looking to a project to improve my C++ knowledge, and I wasn't so sure this project would have helped me. But as time went I started appreciating what I was doing more and more, both because I was indeed improving my C++ experience, and because I was learning a completely new programming paradigm, which will be for sure more common in the future, given the tendency to use more and more parallel programming techniques. I also enjoyed learning about CUDA architecture, and programming towards it, something I've never done before, since I've always programmed non performance critical code. It taught me a lot about memory and branch management, and I was very surprised to know that you can write elegant code even in performance critical sections, and not hacks.
+At the beginning I was looking to a project to improve my C++ knowledge, and I wasn't so sure this project would have helped me. But as time went I started appreciating what I was doing more and more, both because I was indeed improving my C++ experience, and because I was learning a completely new programming paradigm, which will be for sure more common in the future, given the tendency to use more and more parallel programming techniques. I also enjoyed learning about CUDA architecture, and programming towards it, something I've never done before, since I've always programmed non performance-critical code. It taught me a lot about memory and branch management, and I was very surprised to know that you can write elegant code even in performance critical sections, and not hacks.
 
-Last I learned how to work with another person and not alone, and this is probably the most valuable teaching I got. For this reason I'd like to say thank you to Gianpaolo Cugola, who has always been really helpful and treated me as a coworker more than as his student.
+Last I learned how to work with another person and not alone, and this is probably the most valuable teaching I got. For this reason I'd like to say thank you to prof. Gianpaolo Cugola, who has always been really helpful and treated me as a coworker more than as his student.
 
 
 [1]: https://autocorrelationcuda.neocities.org/non_doxygen/PhD_Gong_Sixia.pdf
