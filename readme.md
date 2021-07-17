@@ -27,6 +27,7 @@ So a big value at a specific lag (let's call it `L`) means that the signal `y(t)
 It is important to note that, in the last factor of the formula, the presence of `n-lag` is conceptually equivalent to `n+lag`. Indeed, let `f(n)` be a discrete signal defined in the interval `n[0, 5]`. Let's calculate the autocorrelation for lag 2 using the two equivalent formulae:
 * `A(2) = summation[i: 2 -> 5] (f(i) * f(i-lag)) = f(2)*f(2-2) + f(3)*f(3-2) + f(4)*f(4-2) + f(5)*f(5-2) = f(2)*f(0) + f(3)*f(1) + f(4)*f(2) + f(5)*f(3)`
 * `B(2) = summation[i: 0 -> 3] (f(i) * f(i+lag)) = f(0)*f(0+2) + f(1)*f(1+2) + f(2)*f(2+2) + f(3)*f(5) = f(0)*f(2) + f(1)*f(3) + f(2)*f(4) + f(3)*f(5)`
+
 They are the same, given that the indexes of the summation are shifted accordingly.
 
 [_Visualization tool_][6]
