@@ -20,9 +20,14 @@ The set-up for a FSC experiment includes three components:
 
 Our interest resides on the server, so on the data processing.
 
-The mathematical tool used to process data is the [autocorrelation][5] function, in particular in its discrete form. Simply put, the autocorrelation is a function that correlates a given input to itself. In a more formal way, given a signal `y(t)`, autocorrelation can be defined as: `A(lag) = summation[n in N](y(n) * y(n ± lag))`. It is important to note that in the last factor the presence of `n-lag` is conceptually equivalent to `n+lag`.
+The mathematical tool used to process data is the [autocorrelation][5] function, in particular in its discrete form. Simply put, the autocorrelation is a function that correlates a given input to itself. In a more formal way, given a signal `y(t)`, autocorrelation can be defined as: `A(lag) = summation[n in N](y(n) * y(n - lag))`.
 
 So a big value at a specific lag (let's call it `L`) means that the signal `y(t)` tends to be periodic, and has `L` as period. For example, the autocorrelation of `sin(x)` would yield a maximum at `2pi` and its multiples. The autocorrelation tells us how much "periodic" a function is at a given "period". The periodicity of the data collected by the matrix provides valuable information to the scientists who run the experiment.
+
+It is important to note that, in the last factor of the formula, the presence of `n-lag` is conceptually equivalent to `n+lag`. Indeed, let `f(n)` be a discrete signal defined in the interval `n[0, 5]`. Let's calculate the autocorrelation for lag 2 using the two equivalent formulae:
+* `A(2) = summation[i: 2 -> 5] (f(i) * f(i-lag)) = f(2)*f(2-2) + f(3)*f(3-2) + f(4)*f(4-2) + f(5)*f(5-2) = f(2)*f(0) + f(3)*f(1) + f(4)*f(2) + f(5)*f(3)`
+* `B(2) = summation[i: 0 -> 3] (f(i) * f(i+lag)) = f(0)*f(0+2) + f(1)*f(1+2) + f(2)*f(2+2) + f(3)*f(5) = f(0)*f(2) + f(1)*f(3) + f(2)*f(4) + f(3)*f(5)`
+They are the same, given that the indexes of the summation are shifted accordingly.
 
 [_Visualization tool_][6]
 
